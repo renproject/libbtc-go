@@ -6,8 +6,10 @@
   name = "github.com/btcsuite/btcd"
   packages = [
     "btcec",
+    "btcjson",
     "chaincfg",
     "chaincfg/chainhash",
+    "rpcclient",
     "txscript",
     "wire"
   ]
@@ -29,6 +31,18 @@
     "hdkeychain"
   ]
   revision = "ab6388e0c60ae4834a1f57511e20c17b5f78be4b"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/btcsuite/go-socks"
+  packages = ["socks"]
+  revision = "4720035b7bfd2a9bb130b1c184f8bbe41b6f0d0f"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/btcsuite/websocket"
+  packages = ["."]
+  revision = "31079b6807923eb23992c421b114992b95131b55"
 
 [[projects]]
   name = "github.com/hpcloud/tail"
@@ -166,6 +180,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "9d084bbce930b0710dbb0c27461b9908c51da7d2db5d9e48e01cedbc218b74b6"
+  inputs-digest = "9a3ddb9e988a5652906c5b4f11d714c71c3641f8f73eacbf226352568743534a"
   solver-name = "gps-cdcl"
   solver-version = 1
