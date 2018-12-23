@@ -5,24 +5,24 @@ import (
 	"crypto/ecdsa"
 	"time"
 
-	"github.com/btcsuite/btcd/chaincfg"
-
 	"github.com/btcsuite/btcd/btcec"
+	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/btcsuite/btcutil"
+	"github.com/republicprotocol/libbtc-go/clients"
 )
 
 type account struct {
 	PrivKey *btcec.PrivateKey
-	Client
+	clients.Client
 }
 
 // Account is an Bitcoin external account that can sign and submit transactions
 // to the Bitcoin blockchain. An Account is an abstraction over the Bitcoin
 // blockchain.
 type Account interface {
-	Client
+	clients.Client
 	Address() (btcutil.Address, error)
 	SerializedPublicKey() ([]byte, error)
 	Transfer(ctx context.Context, to string, value int64) (string, error)
@@ -34,12 +34,12 @@ type Account interface {
 		preCond func(*wire.MsgTx) bool,
 		f func(*txscript.ScriptBuilder),
 		postCond func(*wire.MsgTx) bool,
-	) error
+	) (string, error)
 }
 
 // NewAccount returns a user account for the provided private key which is
 // connected to a Bitcoin client.
-func NewAccount(client Client, privateKey *ecdsa.PrivateKey) Account {
+func NewAccount(client clients.Client, privateKey *ecdsa.PrivateKey) Account {
 	return &account{
 		(*btcec.PrivateKey)(privateKey),
 		client,
@@ -48,26 +48,27 @@ func NewAccount(client Client, privateKey *ecdsa.PrivateKey) Account {
 
 // Address returns the address of the given private key
 func (account *account) Address() (btcutil.Address, error) {
+	net := account.Client.NetworkParams()
 	pubKeyBytes, err := account.SerializedPublicKey()
 	if err != nil {
 		return nil, err
 	}
-	pubKey, err := btcutil.NewAddressPubKey(pubKeyBytes, account.NetworkParams())
+	pubKey, err := btcutil.NewAddressPubKey(pubKeyBytes, net)
 	if err != nil {
 		return nil, err
 	}
 	addrString := pubKey.EncodeAddress()
-	return btcutil.DecodeAddress(addrString, account.NetworkParams())
+	return btcutil.DecodeAddress(addrString, net)
 }
 
 // Transfer bitcoins to the given address
 func (account *account) Transfer(ctx context.Context, to string, value int64) (string, error) {
-	address, err := btcutil.DecodeAddress(to, account.NetworkParams())
+	net := account.Client.NetworkParams()
+	address, err := btcutil.DecodeAddress(to, net)
 	if err != nil {
 		return "", err
 	}
-	var txHash string
-	return txHash, account.SendTransaction(
+	return account.SendTransaction(
 		ctx,
 		nil,
 		10000,
@@ -81,10 +82,7 @@ func (account *account) Transfer(ctx context.Context, to string, value int64) (s
 			return true
 		},
 		nil,
-		func(tx *wire.MsgTx) bool {
-			txHash = tx.TxHash().String()
-			return true
-		},
+		nil,
 	)
 }
 
@@ -106,11 +104,13 @@ func (account *account) SendTransaction(
 	preCond func(*wire.MsgTx) bool,
 	f func(*txscript.ScriptBuilder),
 	postCond func(*wire.MsgTx) bool,
-) error {
+) (string, error) {
+	net := account.Client.NetworkParams()
+
 	// Current Bitcoin Transaction Version (2).
 	tx := account.newTx(ctx, wire.NewMsgTx(2))
 	if preCond != nil && !preCond(tx.msgTx) {
-		return ErrPreConditionCheckFailed
+		return "", ErrPreConditionCheckFailed
 	}
 
 	var address btcutil.Address
@@ -118,38 +118,39 @@ func (account *account) SendTransaction(
 	if contract == nil {
 		address, err = account.Address()
 		if err != nil {
-			return err
+			return "", err
 		}
 	} else {
-		address, err = btcutil.NewAddressScriptHash(contract, account.NetworkParams())
+		address, err = btcutil.NewAddressScriptHash(contract, net)
 		if err != nil {
-			return err
+			return "", err
 		}
 	}
 
 	if err := tx.fund(address, fee); err != nil {
-		return err
+		return "", err
 	}
 
 	if err := tx.sign(f, updateTxIn, contract); err != nil {
-		return err
+		return "", err
 	}
 
 	if err := tx.verify(); err != nil {
-		return err
+		return "", err
 	}
 
 	for {
 		select {
 		case <-ctx.Done():
-			return ErrPostConditionCheckFailed
+			return "", ErrPostConditionCheckFailed
 		default:
-			if err := tx.submit(); err != nil {
-				return err
+			txHash, err := tx.submit()
+			if err != nil {
+				return "", err
 			}
 			for i := 0; i < 60; i++ {
 				if postCond == nil || postCond(tx.msgTx) {
-					return nil
+					return txHash, nil
 				}
 				time.Sleep(5 * time.Second)
 			}
@@ -159,12 +160,13 @@ func (account *account) SendTransaction(
 
 func (account *account) SerializedPublicKey() ([]byte, error) {
 	pubKey := account.PrivKey.PubKey()
-	switch account.NetworkParams() {
+	net := account.Client.NetworkParams()
+	switch net {
 	case &chaincfg.MainNetParams:
 		return pubKey.SerializeCompressed(), nil
 	case &chaincfg.TestNet3Params:
 		return pubKey.SerializeUncompressed(), nil
 	default:
-		return nil, NewErrUnsupportedNetwork(account.NetworkParams().Name)
+		return nil, NewErrUnsupportedNetwork(net.Name)
 	}
 }
