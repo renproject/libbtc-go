@@ -6,12 +6,14 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/republicprotocol/libbtc-go"
+	"github.com/republicprotocol/libbtc-go/clients"
 
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcd/chaincfg"
@@ -70,8 +72,17 @@ var _ = Describe("LibBTC", func() {
 		return b.Script()
 	}
 
+	buildClient := func() clients.Client {
+		// client, err := clients.NewBlockchainInfoClient("testnet")
+		// Expect(err).Should(BeNil())
+
+		client, err := clients.NewBitcoinFNClient("54.204.231.4:18332", "testuser", "testpassword")
+		Expect(err).Should(BeNil())
+		return client
+	}
+
 	getAccounts := func() (Account, Account) {
-		client := NewBlockchainInfoClient("testnet")
+		client := buildClient()
 		mainKey, err := loadKey(44, 1, 0, 0, 0) // "m/44'/1'/0'/0/0"
 		Expect(err).Should(BeNil())
 		mainAccount := NewAccount(client, mainKey)
@@ -151,13 +162,13 @@ var _ = Describe("LibBTC", func() {
 			initialBalance, err := secondaryAccount.Balance(context.Background(), contractAddress.EncodeAddress(), 0)
 			Expect(err).Should(BeNil())
 			// building a transaction to transfer bitcoin to the secondary address
-			err = mainAccount.SendTransaction(
+			_, err = mainAccount.SendTransaction(
 				context.Background(),
 				nil,
 				10000, // fee
 				nil,
 				func(msgtx *wire.MsgTx) bool {
-					funded, val, err := mainAccount.ScriptFunded(context.Background(), contractAddress.EncodeAddress(), 50000)
+					funded, val, err := mainAccount.ScriptFunded(context.Background(), contractAddress.EncodeAddress(), 50000, 0)
 					if err != nil {
 						return false
 					}
@@ -168,7 +179,7 @@ var _ = Describe("LibBTC", func() {
 				},
 				nil,
 				func(msgtx *wire.MsgTx) bool {
-					funded, _, err := mainAccount.ScriptFunded(context.Background(), contractAddress.EncodeAddress(), 50000)
+					funded, _, err := mainAccount.ScriptFunded(context.Background(), contractAddress.EncodeAddress(), 50000, 0)
 					if err != nil {
 						return false
 					}
@@ -191,13 +202,13 @@ var _ = Describe("LibBTC", func() {
 			P2PKHScript, err := txscript.PayToAddrScript(secondaryAddress)
 			Expect(err).Should(BeNil())
 			// building a transaction to transfer bitcoin to the secondary address
-			err = secondaryAccount.SendTransaction(
+			_, err = secondaryAccount.SendTransaction(
 				context.Background(),
 				contract,
 				10000, // fee
 				nil,
 				func(msgtx *wire.MsgTx) bool {
-					funded, val, err := secondaryAccount.ScriptFunded(context.Background(), contractAddress.EncodeAddress(), 50000)
+					funded, val, err := secondaryAccount.ScriptFunded(context.Background(), contractAddress.EncodeAddress(), 50000, 0)
 					if err != nil {
 						return false
 					}
@@ -210,7 +221,7 @@ var _ = Describe("LibBTC", func() {
 					builder.AddData(secret[:])
 				},
 				func(msgtx *wire.MsgTx) bool {
-					spent, err := secondaryAccount.ScriptSpent(context.Background(), contractAddress.EncodeAddress())
+					spent, _, err := secondaryAccount.ScriptSpent(context.Background(), contractAddress.EncodeAddress(), secondaryAddress.EncodeAddress())
 					if err != nil {
 						return false
 					}
@@ -225,13 +236,16 @@ var _ = Describe("LibBTC", func() {
 
 		It("should be able to extract details from a spent contract", func() {
 			_, _, contractAddress := getContractDetails(secret)
-			mainAccount, _ := getAccounts()
-			spent, err := mainAccount.ScriptSpent(context.Background(), contractAddress.EncodeAddress())
+			mainAccount, secondaryAccount := getAccounts()
+			secondaryAddress, err := secondaryAccount.Address()
+			Expect(err).Should(BeNil())
+			spent, sigScript, err := mainAccount.ScriptSpent(context.Background(), contractAddress.EncodeAddress(), secondaryAddress.EncodeAddress())
 			Expect(err).Should(BeNil())
 			Expect(spent).Should(BeTrue())
-			sigScript, err := mainAccount.GetScriptFromSpentP2SH(context.Background(), contractAddress.EncodeAddress())
 			Expect(err).Should(BeNil())
-			pushes, err := txscript.PushedData(sigScript)
+			sigScriptBytes, err := hex.DecodeString(sigScript)
+			Expect(err).Should(BeNil())
+			pushes, err := txscript.PushedData(sigScriptBytes)
 			Expect(err).Should(BeNil())
 			success := false
 			for _, push := range pushes {
