@@ -11,7 +11,7 @@
     "txscript",
     "wire"
   ]
-  revision = "67e573d211ace594f1366b4ce9d39726c4b19bd0"
+  revision = "306aecffea325e97f513b3ff0cf7895a5310651d"
 
 [[projects]]
   branch = "master"
@@ -28,7 +28,7 @@
     "bech32",
     "hdkeychain"
   ]
-  revision = "ab6388e0c60ae4834a1f57511e20c17b5f78be4b"
+  revision = "4c204d6978034c001714728401fcd63060d568b4"
 
 [[projects]]
   name = "github.com/hpcloud/tail"
@@ -70,8 +70,8 @@
     "reporters/stenographer/support/go-isatty",
     "types"
   ]
-  revision = "3774a09d95489ccaa16032e0770d08ea77ba6184"
-  version = "v1.6.0"
+  revision = "2e1be8f7d90e9d3e3e58b0ce470f2f14d075406f"
+  version = "v1.7.0"
 
 [[projects]]
   name = "github.com/onsi/gomega"
@@ -89,8 +89,8 @@
     "matchers/support/goraph/util",
     "types"
   ]
-  revision = "7615b9433f86a8bdf29709bf288bc4fd0636a369"
-  version = "v1.4.2"
+  revision = "65fb64232476ad9046e57c26cd0bff3d3a8dc6cd"
+  version = "v1.4.3"
 
 [[projects]]
   name = "github.com/sirupsen/logrus"
@@ -115,7 +115,7 @@
     "ripemd160",
     "ssh/terminal"
   ]
-  revision = "0c41d7ab0a0ee717d4590a44bcb987dfd9e183eb"
+  revision = "a4c6cb3142f211c99e4bf4cd769535b29a9b616f"
 
 [[projects]]
   branch = "master"
@@ -125,7 +125,7 @@
     "html/atom",
     "html/charset"
   ]
-  revision = "49bb7cea24b1df9410e1712aa6433dae904ff66a"
+  revision = "3a22650c66bd7f4fb6d1e8072ffd7b75c8a27898"
 
 [[projects]]
   branch = "master"
@@ -134,7 +134,7 @@
     "unix",
     "windows"
   ]
-  revision = "fa43e7bc11baaae89f3f902b2b4d832b68234844"
+  revision = "629670e5acc5b3e069375d323404911dc8fe1d19"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -176,8 +176,8 @@
 [[projects]]
   name = "gopkg.in/yaml.v2"
   packages = ["."]
-  revision = "5420a8b6744d3b0345ab293f6fcba19c978f1183"
-  version = "v2.2.1"
+  revision = "51d6538a90f86fe93ac480b35f37b2be17fef232"
+  version = "v2.2.2"
 
 [solve-meta]
   analyzer-name = "dep"
