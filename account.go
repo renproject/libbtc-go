@@ -43,7 +43,7 @@ type Account interface {
 	Client
 	Address() (btcutil.Address, error)
 	SerializedPublicKey() ([]byte, error)
-	Transfer(ctx context.Context, to string, value int64, speed TxExecutionSpeed, sendAll bool) (string, error)
+	Transfer(ctx context.Context, to string, value int64, speed TxExecutionSpeed, sendAll bool) (string, int64, error)
 	SendTransaction(
 		ctx context.Context,
 		script []byte,
@@ -53,7 +53,7 @@ type Account interface {
 		f func(*txscript.ScriptBuilder),
 		postCond func(*wire.MsgTx) bool,
 		sendAll bool,
-	) error
+	) (string, int64, error)
 }
 
 // NewAccount returns a user account for the provided private key which is
@@ -90,25 +90,24 @@ func (account *account) Address() (btcutil.Address, error) {
 }
 
 // Transfer bitcoins to the given address
-func (account *account) Transfer(ctx context.Context, to string, value int64, speed TxExecutionSpeed, sendAll bool) (string, error) {
+func (account *account) Transfer(ctx context.Context, to string, value int64, speed TxExecutionSpeed, sendAll bool) (string, int64, error) {
 	if sendAll {
 		me, err := account.Address()
 		if err != nil {
-			return "", err
+			return "", 0, err
 		}
 		balance, err := account.Balance(ctx, me.EncodeAddress(), 0)
 		if err != nil {
-			return "", err
+			return "", 0, err
 		}
 		value = balance
 	}
 
 	address, err := btcutil.DecodeAddress(to, account.NetworkParams())
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
-	var txHash string
-	return txHash, account.SendTransaction(
+	return account.SendTransaction(
 		ctx,
 		nil,
 		speed,
@@ -122,10 +121,7 @@ func (account *account) Transfer(ctx context.Context, to string, value int64, sp
 			return true
 		},
 		nil,
-		func(tx *wire.MsgTx) bool {
-			txHash = tx.TxHash().String()
-			return true
-		},
+		nil,
 		sendAll,
 	)
 }
@@ -149,11 +145,11 @@ func (account *account) SendTransaction(
 	f func(*txscript.ScriptBuilder),
 	postCond func(*wire.MsgTx) bool,
 	sendAll bool,
-) error {
+) (string, int64, error) {
 	// Current Bitcoin Transaction Version (2).
 	tx := account.newTx(ctx, wire.NewMsgTx(2))
 	if preCond != nil && !preCond(tx.msgTx) {
-		return ErrPreConditionCheckFailed
+		return "", 0, ErrPreConditionCheckFailed
 	}
 
 	var address btcutil.Address
@@ -161,23 +157,23 @@ func (account *account) SendTransaction(
 	if contract == nil {
 		address, err = account.Address()
 		if err != nil {
-			return err
+			return "", 0, err
 		}
 	} else {
 		address, err = btcutil.NewAddressScriptHash(contract, account.NetworkParams())
 		if err != nil {
-			return err
+			return "", 0, err
 		}
 	}
 
 	account.Logger.Infof("funding %s, with fee %d SAT/byte", address.EncodeAddress(), speed)
 	if sendAll {
 		if err := tx.fundAll(address); err != nil {
-			return err
+			return "", 0, err
 		}
 	} else {
 		if err := tx.fund(address); err != nil {
-			return err
+			return "", 0, err
 		}
 	}
 	account.Logger.Info("successfully funded the transaction")
@@ -185,7 +181,7 @@ func (account *account) SendTransaction(
 	account.Logger.Info("estimating stx size")
 	size, err := tx.estimateSTXSize(f, updateTxIn, contract)
 	if err != nil {
-		return err
+		return "", 0, err
 	}
 	account.Logger.Info("successfully estimated stx size")
 
@@ -193,17 +189,18 @@ func (account *account) SendTransaction(
 	if err != nil {
 		rate = 30
 	}
-	tx.msgTx.TxOut[len(tx.msgTx.TxOut)-1].Value -= int64(size) * rate
+	txFee := int64(size) * rate
+	tx.msgTx.TxOut[len(tx.msgTx.TxOut)-1].Value -= txFee
 
 	account.Logger.Info("signing the tx")
 	if err := tx.sign(f, updateTxIn, contract); err != nil {
-		return err
+		return "", 0, err
 	}
 	account.Logger.Info("successfully signined the tx")
 
 	account.Logger.Info("verifying the tx")
 	if err := tx.verify(); err != nil {
-		return err
+		return "", 0, err
 	}
 	account.Logger.Info("successfully verified the tx")
 
@@ -212,16 +209,16 @@ func (account *account) SendTransaction(
 		select {
 		case <-ctx.Done():
 			account.Logger.Info("submitting failed due to failed post condition")
-			return ErrPostConditionCheckFailed
+			return "", 0, ErrPostConditionCheckFailed
 		default:
 			if err := tx.submit(); err != nil {
 				account.Logger.Infof("submitting failed due to %s", err)
-				return err
+				return "", 0, err
 			}
 			for i := 0; i < 60; i++ {
 				if postCond == nil || postCond(tx.msgTx) {
 					account.Logger.Infof("successfully submitted the tx", err)
-					return nil
+					return tx.msgTx.TxHash().String(), txFee, nil
 				}
 				time.Sleep(5 * time.Second)
 			}

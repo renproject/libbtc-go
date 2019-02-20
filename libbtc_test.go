@@ -138,7 +138,7 @@ var _ = Describe("LibBTC", func() {
 			initialBalance, err := secondaryAccount.Balance(context.Background(), secAddr.String(), 0)
 			Expect(err).Should(BeNil())
 			// building a transaction to transfer bitcoin to the secondary address
-			_, err = mainAccount.Transfer(context.Background(), secAddr.String(), 10000, Fast, false)
+			_, _, err = mainAccount.Transfer(context.Background(), secAddr.String(), 10000, Fast, false)
 			Expect(err).Should(BeNil())
 			finalBalance, err := secondaryAccount.Balance(context.Background(), secAddr.String(), 0)
 			Expect(err).Should(BeNil())
@@ -151,7 +151,7 @@ var _ = Describe("LibBTC", func() {
 			initialBalance, err := secondaryAccount.Balance(context.Background(), contractAddress.EncodeAddress(), 0)
 			Expect(err).Should(BeNil())
 			// building a transaction to transfer bitcoin to the secondary address
-			err = mainAccount.SendTransaction(
+			_, _, err = mainAccount.SendTransaction(
 				context.Background(),
 				nil,
 				Fast, // fee
@@ -192,7 +192,7 @@ var _ = Describe("LibBTC", func() {
 			P2PKHScript, err := txscript.PayToAddrScript(secondaryAddress)
 			Expect(err).Should(BeNil())
 			// building a transaction to transfer bitcoin to the secondary address
-			err = secondaryAccount.SendTransaction(
+			_, _, err = secondaryAccount.SendTransaction(
 				context.Background(),
 				contract,
 				Fast, // fee
