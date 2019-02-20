@@ -43,6 +43,12 @@
   version = "v1.0.0"
 
 [[projects]]
+  name = "github.com/konsorten/go-windows-terminal-sequences"
+  packages = ["."]
+  revision = "5c8c8bd35d3832f5d134ae1e1e375b69a4d25242"
+  version = "v1.0.1"
+
+[[projects]]
   name = "github.com/onsi/ginkgo"
   packages = [
     ".",
@@ -87,6 +93,12 @@
   version = "v1.4.2"
 
 [[projects]]
+  name = "github.com/sirupsen/logrus"
+  packages = ["."]
+  revision = "e1e72e9de974bd926e5c56f83753fba2df402ce5"
+  version = "v1.3.0"
+
+[[projects]]
   name = "github.com/tyler-smith/go-bip39"
   packages = [
     ".",
@@ -100,7 +112,8 @@
   name = "golang.org/x/crypto"
   packages = [
     "pbkdf2",
-    "ripemd160"
+    "ripemd160",
+    "ssh/terminal"
   ]
   revision = "0c41d7ab0a0ee717d4590a44bcb987dfd9e183eb"
 
@@ -117,7 +130,10 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
-  packages = ["unix"]
+  packages = [
+    "unix",
+    "windows"
+  ]
   revision = "fa43e7bc11baaae89f3f902b2b4d832b68234844"
 
 [[projects]]
@@ -166,6 +182,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "9d084bbce930b0710dbb0c27461b9908c51da7d2db5d9e48e01cedbc218b74b6"
+  inputs-digest = "ac5c4063a786659cf9c41107927b23a33d8f9e78e98db7c1eea9701ef1216cb1"
   solver-name = "gps-cdcl"
   solver-version = 1
