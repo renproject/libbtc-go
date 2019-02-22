@@ -190,6 +190,9 @@ func (account *account) SendTransaction(
 		rate = 30
 	}
 	txFee := int64(size) * rate
+	if txFee > 10000 {
+		txFee = 10000
+	}
 	tx.msgTx.TxOut[len(tx.msgTx.TxOut)-1].Value -= txFee
 
 	account.Logger.Info("signing the tx")
