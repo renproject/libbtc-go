@@ -85,12 +85,12 @@ func (tx *tx) fund(addr btcutil.Address) error {
 		}
 		tx.msgTx.AddTxIn(wire.NewTxIn(wire.NewOutPoint(hash, j.TransactionOutputNumber), []byte{}, [][]byte{}))
 		value = value - j.Amount
-		if value <= -MaxBitcoinFee-BitcoinDust {
+		if value <= -MaxBitcoinFee {
 			break
 		}
 	}
 
-	if value <= -MaxBitcoinFee-BitcoinDust {
+	if value <= -MaxBitcoinFee {
 		P2PKHScript, err := txscript.PayToAddrScript(addr)
 		if err != nil {
 			return err

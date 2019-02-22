@@ -189,9 +189,10 @@ func (account *account) SendTransaction(
 	if err != nil {
 		rate = 30
 	}
+
 	txFee := int64(size) * rate
-	if txFee > 10000 {
-		txFee = 10000
+	if txFee > MaxBitcoinFee-BitcoinDust {
+		txFee = MaxBitcoinFee
 	}
 	tx.msgTx.TxOut[len(tx.msgTx.TxOut)-1].Value -= txFee
 
