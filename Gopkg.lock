@@ -3,6 +3,18 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/FactomProject/basen"
+  packages = ["."]
+  revision = "fe3947df716ebfda9847eb1b9a48f9592e06478c"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/FactomProject/btcutilecc"
+  packages = ["."]
+  revision = "d3a63a5752ecf3fbc06bd97365da752111c263df"
+
+[[projects]]
+  branch = "master"
   name = "github.com/btcsuite/btcd"
   packages = [
     "btcec",
@@ -43,6 +55,19 @@
   name = "github.com/btcsuite/websocket"
   packages = ["."]
   revision = "31079b6807923eb23992c421b114992b95131b55"
+
+[[projects]]
+  name = "github.com/ethereum/go-ethereum"
+  packages = [
+    "common",
+    "common/hexutil",
+    "common/math",
+    "crypto",
+    "crypto/secp256k1",
+    "rlp"
+  ]
+  revision = "c942700427557e3ff6de3aaf6b916e2f056c1ec2"
+  version = "v1.8.23"
 
 [[projects]]
   name = "github.com/hpcloud/tail"
@@ -113,6 +138,12 @@
   version = "v1.3.0"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/tyler-smith/go-bip32"
+  packages = ["."]
+  revision = "2c9cfd17756470a0b7c3e4b7954bae7d11035504"
+
+[[projects]]
   name = "github.com/tyler-smith/go-bip39"
   packages = [
     ".",
@@ -127,6 +158,7 @@
   packages = [
     "pbkdf2",
     "ripemd160",
+    "sha3",
     "ssh/terminal"
   ]
   revision = "a4c6cb3142f211c99e4bf4cd769535b29a9b616f"
@@ -148,7 +180,7 @@
     "unix",
     "windows"
   ]
-  revision = "629670e5acc5b3e069375d323404911dc8fe1d19"
+  revision = "cd391775e71e684db52b63df9affd58269495083"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -196,6 +228,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "ac5c4063a786659cf9c41107927b23a33d8f9e78e98db7c1eea9701ef1216cb1"
+  inputs-digest = "3f2293c04970d449b29eab49588beda50a38173e150c3f60ce489988c2341302"
   solver-name = "gps-cdcl"
   solver-version = 1
