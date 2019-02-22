@@ -3,6 +3,7 @@ package libbtc
 import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/renproject/libbtc-go/clients"
+	"github.com/sirupsen/logrus"
 	"github.com/tyler-smith/go-bip32"
 	"github.com/tyler-smith/go-bip39"
 )
@@ -10,14 +11,15 @@ import (
 type wallet struct {
 	mnemonic string
 	client   clients.Client
+	logger   logrus.FieldLogger
 }
 
 type Wallet interface {
 	NewAccount(derivationPath []uint32, password string) (Account, error)
 }
 
-func NewWallet(mnemonic string, client clients.Client) Wallet {
-	return &wallet{mnemonic, client}
+func NewWallet(mnemonic string, client clients.Client, logger logrus.FieldLogger) Wallet {
+	return &wallet{mnemonic, client, logger}
 }
 
 func (wallet *wallet) NewAccount(derivationPath []uint32, password string) (Account, error) {
@@ -36,5 +38,5 @@ func (wallet *wallet) NewAccount(derivationPath []uint32, password string) (Acco
 	if err != nil {
 		return nil, err
 	}
-	return NewAccount(wallet.client, privKey), nil
+	return NewAccount(wallet.client, privKey, wallet.logger), nil
 }
