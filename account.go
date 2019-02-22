@@ -33,8 +33,8 @@ const (
 
 type account struct {
 	PrivKey *btcec.PrivateKey
+	Logger  logrus.FieldLogger
 	clients.Client
-	Logger logrus.FieldLogger
 }
 
 // Account is an Bitcoin external account that can sign and submit transactions
@@ -59,7 +59,7 @@ type Account interface {
 
 // NewAccount returns a user account for the provided private key which is
 // connected to a Bitcoin client.
-func NewAccount(client Client, privateKey *ecdsa.PrivateKey, logger logrus.FieldLogger) Account {
+func NewAccount(client clients.Client, privateKey *ecdsa.PrivateKey, logger logrus.FieldLogger) Account {
 	if logger == nil {
 		nullLogger := logrus.New()
 		logFile, err := os.OpenFile(os.DevNull, os.O_APPEND|os.O_WRONLY, 0666)
@@ -162,7 +162,7 @@ func (account *account) SendTransaction(
 			return "", 0, err
 		}
 	} else {
-		address, err = btcutil.NewAddressScriptHash(contract, net)
+		address, err = btcutil.NewAddressScriptHash(contract, account.NetworkParams())
 		if err != nil {
 			return "", 0, err
 		}
