@@ -85,10 +85,10 @@ var _ = Describe("LibBTC", func() {
 		client := buildClient()
 		mainKey, err := loadKey(44, 1, 0, 0, 0) // "m/44'/1'/0'/0/0"
 		Expect(err).Should(BeNil())
-		mainAccount := NewAccount(client, mainKey)
+		mainAccount := NewAccount(client, mainKey, nil)
 		secKey, err := loadKey(44, 1, 1, 0, 0) // "m/44'/1'/1'/0/0"
 		Expect(err).Should(BeNil())
-		secondaryAccount := NewAccount(client, secKey)
+		secondaryAccount := NewAccount(client, secKey, nil)
 		return mainAccount, secondaryAccount
 	}
 
@@ -149,7 +149,7 @@ var _ = Describe("LibBTC", func() {
 			initialBalance, err := secondaryAccount.Balance(context.Background(), secAddr.String(), 0)
 			Expect(err).Should(BeNil())
 			// building a transaction to transfer bitcoin to the secondary address
-			_, err = mainAccount.Transfer(context.Background(), secAddr.String(), 10000)
+			_, _, err = mainAccount.Transfer(context.Background(), secAddr.String(), 10000, Fast, false)
 			Expect(err).Should(BeNil())
 			finalBalance, err := secondaryAccount.Balance(context.Background(), secAddr.String(), 0)
 			Expect(err).Should(BeNil())
@@ -162,10 +162,10 @@ var _ = Describe("LibBTC", func() {
 			initialBalance, err := secondaryAccount.Balance(context.Background(), contractAddress.EncodeAddress(), 0)
 			Expect(err).Should(BeNil())
 			// building a transaction to transfer bitcoin to the secondary address
-			_, err = mainAccount.SendTransaction(
+			_, _, err = mainAccount.SendTransaction(
 				context.Background(),
 				nil,
-				10000, // fee
+				Fast, // fee
 				nil,
 				func(msgtx *wire.MsgTx) bool {
 					funded, val, err := mainAccount.ScriptFunded(context.Background(), contractAddress.EncodeAddress(), 50000, 0)
@@ -185,6 +185,7 @@ var _ = Describe("LibBTC", func() {
 					}
 					return funded
 				},
+				false,
 			)
 			Expect(err).Should(BeNil())
 			finalBalance, err := secondaryAccount.Balance(context.Background(), contractAddress.EncodeAddress(), 0)
@@ -202,20 +203,20 @@ var _ = Describe("LibBTC", func() {
 			P2PKHScript, err := txscript.PayToAddrScript(secondaryAddress)
 			Expect(err).Should(BeNil())
 			// building a transaction to transfer bitcoin to the secondary address
-			_, err = secondaryAccount.SendTransaction(
+			_, _, err = secondaryAccount.SendTransaction(
 				context.Background(),
 				contract,
-				10000, // fee
+				Fast, // fee
 				nil,
 				func(msgtx *wire.MsgTx) bool {
-					funded, val, err := secondaryAccount.ScriptFunded(context.Background(), contractAddress.EncodeAddress(), 50000, 0)
+					redeemed, val, err := secondaryAccount.ScriptRedeemed(context.Background(), contractAddress.EncodeAddress(), 50000)
 					if err != nil {
 						return false
 					}
-					if funded {
-						msgtx.AddTxOut(wire.NewTxOut(val-10000, P2PKHScript)) // value - fee
+					if !redeemed {
+						msgtx.AddTxOut(wire.NewTxOut(val, P2PKHScript))
 					}
-					return funded
+					return !redeemed
 				},
 				func(builder *txscript.ScriptBuilder) {
 					builder.AddData(secret[:])
@@ -227,6 +228,7 @@ var _ = Describe("LibBTC", func() {
 					}
 					return spent
 				},
+				true,
 			)
 			Expect(err).Should(BeNil())
 			finalBalance, err := secondaryAccount.Balance(context.Background(), contractAddress.EncodeAddress(), 0)

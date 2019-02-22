@@ -1,5 +1,4 @@
 LibBTC
 ===============
 
-[![Build Status](https://travis-ci.org/republicprotocol/libbtc-go.svg?branch=master)](https://travis-ci.org/republicprotocol/libbtc-go)
-[![Coverage Status](https://coveralls.io/repos/github/republicprotocol/libbtc-go/badge.svg?branch=master)](https://coveralls.io/github/republicprotocol/libbtc-go?branch=master)
+[![CircleCI](https://circleci.com/gh/renproject/libbtc-go/tree/master.svg?style=svg)](https://circleci.com/gh/renproject/libbtc-go/tree/master)

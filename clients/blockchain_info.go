@@ -14,7 +14,7 @@ import (
 
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/wire"
-	"github.com/republicprotocol/libbtc-go/errors"
+	"github.com/renproject/libbtc-go/errors"
 )
 
 type PreviousOut struct {
@@ -313,8 +313,27 @@ func (client *blockchainInfoClient) ScriptFunded(ctx context.Context, address st
 	return rawAddress.Received >= value, rawAddress.Received, nil
 }
 
-func (client *blockchainInfoClient) NetworkParams() *chaincfg.Params {
+func (client *client) ScriptRedeemed(ctx context.Context, address string, value int64) (bool, int64, error) {
+	rawAddress, err := client.GetRawAddressInformation(ctx, address)
+	if err != nil {
+		return false, 0, err
+	}
+	return rawAddress.Received >= value && rawAddress.Balance == 0, rawAddress.Balance, nil
+}
+
+func (client *client) NetworkParams() *chaincfg.Params {
 	return client.Params
+}
+
+func (client *client) FormatTransactionView(msg, txhash string) string {
+	switch client.NetworkParams().Name {
+	case "mainnet":
+		return fmt.Sprintf("%s, transaction can be viewed at https://live.blockcypher.com/btc/tx/%s", msg, txhash)
+	case "testnet3":
+		return fmt.Sprintf("%s, transaction can be viewed at https://live.blockcypher.com/btc-testnet/tx/%s", msg, txhash)
+	default:
+		panic(NewErrUnsupportedNetwork(client.NetworkParams().Name))
+	}
 }
 
 func backoff(ctx context.Context, f func() error) error {

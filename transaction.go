@@ -4,12 +4,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"fmt"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/btcsuite/btcutil"
 )
+
+const BitcoinDust = 600
+const MaxBitcoinFee = int64(10000)
 
 type tx struct {
 	receiveValues   []int64
@@ -27,7 +31,7 @@ func (account *account) newTx(ctx context.Context, msgtx *wire.MsgTx) *tx {
 	}
 }
 
-func (tx *tx) fund(addr btcutil.Address, fee int64) error {
+func (tx *tx) fund(addr btcutil.Address) error {
 	if addr == nil {
 		var err error
 		addr, err = tx.account.Address()
@@ -37,18 +41,20 @@ func (tx *tx) fund(addr btcutil.Address, fee int64) error {
 	}
 
 	var value int64
-	for _, j := range tx.msgTx.TxOut {
+	for i, j := range tx.msgTx.TxOut {
+		if j.Value < 600 {
+			return fmt.Errorf("transaction's %d output value (%d) is less than bitcoin's minimum value (%d)", i, j.Value, BitcoinDust)
+		}
 		value = value + j.Value
 	}
-	value = value + fee
 
 	balance, err := tx.account.Balance(tx.ctx, addr.EncodeAddress(), 0)
 	if err != nil {
 		return err
 	}
 
-	if value > balance {
-		return NewErrInsufficientBalance(addr.EncodeAddress(), value, balance)
+	if value+MaxBitcoinFee > balance {
+		return NewErrInsufficientBalance(addr.EncodeAddress(), value+MaxBitcoinFee, balance)
 	}
 
 	utxos, err := tx.account.GetUTXOs(tx.ctx, addr.EncodeAddress(), 999999, 0)
@@ -68,9 +74,6 @@ func (tx *tx) fund(addr btcutil.Address, fee int64) error {
 				continue
 			}
 		}
-		if value <= 0 {
-			break
-		}
 		tx.receiveValues = append(tx.receiveValues, j.Amount)
 		hash, err := chainhash.NewHashFromStr(j.TxHash)
 		if err != nil {
@@ -78,20 +81,51 @@ func (tx *tx) fund(addr btcutil.Address, fee int64) error {
 		}
 		tx.msgTx.AddTxIn(wire.NewTxIn(wire.NewOutPoint(hash, j.Vout), []byte{}, [][]byte{}))
 		value = value - j.Amount
+		if value <= -MaxBitcoinFee {
+			break
+		}
 	}
 
-	if value > 0 {
-		return ErrMismatchedPubKeys
-	}
-
-	if value < 0 {
+	if value <= -MaxBitcoinFee {
 		P2PKHScript, err := txscript.PayToAddrScript(addr)
 		if err != nil {
 			return err
 		}
-		tx.msgTx.AddTxOut(wire.NewTxOut(int64(-value), P2PKHScript))
+		tx.msgTx.AddTxOut(wire.NewTxOut(-value, P2PKHScript))
+	} else {
+		return ErrMismatchedPubKeys
 	}
+	return nil
+}
 
+func (tx *tx) fundAll(addr btcutil.Address) error {
+	utxos, err := tx.account.GetUnspentOutputs(tx.ctx, addr.EncodeAddress(), 1000, 0)
+	if err != nil {
+		return err
+	}
+	for _, j := range utxos.Outputs {
+		ScriptPubKey, err := hex.DecodeString(j.ScriptPubKey)
+		if err != nil {
+			return err
+		}
+		if len(tx.scriptPublicKey) == 0 {
+			tx.scriptPublicKey = ScriptPubKey
+		} else {
+			if bytes.Compare(tx.scriptPublicKey, ScriptPubKey) != 0 {
+				continue
+			}
+		}
+		tx.receiveValues = append(tx.receiveValues, j.Amount)
+		hashBytes, err := hex.DecodeString(j.TransactionHash)
+		if err != nil {
+			return err
+		}
+		hash, err := chainhash.NewHash(hashBytes)
+		if err != nil {
+			return err
+		}
+		tx.msgTx.AddTxIn(wire.NewTxIn(wire.NewOutPoint(hash, j.TransactionOutputNumber), []byte{}, [][]byte{}))
+	}
 	return nil
 }
 
@@ -130,6 +164,44 @@ func (tx *tx) sign(f func(*txscript.ScriptBuilder), updateTxIn func(*wire.TxIn),
 		txin.SignatureScript = sigScript
 	}
 	return nil
+}
+
+func (tx *tx) estimateSTXSize(f func(*txscript.ScriptBuilder), updateTxIn func(*wire.TxIn), contract []byte) (int, error) {
+	var subScript []byte
+	if contract == nil {
+		subScript = tx.scriptPublicKey
+	} else {
+		subScript = contract
+	}
+	serializedPublicKey, err := tx.account.SerializedPublicKey()
+	if err != nil {
+		return 0, err
+	}
+	txCopy := tx.msgTx.Copy()
+	for i, txin := range txCopy.TxIn {
+		if updateTxIn != nil {
+			updateTxIn(txin)
+		}
+		sig, err := txscript.RawTxInSignature(txCopy, i, subScript, txscript.SigHashAll, tx.account.PrivKey)
+		if err != nil {
+			return 0, err
+		}
+		builder := txscript.NewScriptBuilder()
+		builder.AddData(sig)
+		builder.AddData(serializedPublicKey)
+		if f != nil {
+			f(builder)
+		}
+		if contract != nil {
+			builder.AddData(contract)
+		}
+		sigScript, err := builder.Script()
+		if err != nil {
+			return 0, err
+		}
+		txin.SignatureScript = sigScript
+	}
+	return txCopy.SerializeSize(), nil
 }
 
 func (tx *tx) verify() error {

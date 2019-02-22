@@ -2,7 +2,7 @@ package libbtc
 
 import (
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/republicprotocol/libbtc-go/clients"
+	"github.com/renproject/libbtc-go/clients"
 	"github.com/tyler-smith/go-bip32"
 	"github.com/tyler-smith/go-bip39"
 )
