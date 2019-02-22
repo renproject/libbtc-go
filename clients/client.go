@@ -24,14 +24,17 @@ type ClientCore interface {
 	Confirmations(ctx context.Context, txHash string) (int64, error)
 
 	// ScriptFunded checks whether a script is funded.
-	ScriptFunded(ctx context.Context, address string, value, conf int64) (bool, int64, error)
+	ScriptFunded(ctx context.Context, address string, value int64) (bool, int64, error)
+
+	// ScriptRedeemed checks whether a script is redeemed.
+	ScriptRedeemed(ctx context.Context, address string, value int64) (bool, int64, error)
 
 	// ScriptSpent checks whether a script is spent.
 	ScriptSpent(ctx context.Context, script, spender string) (bool, string, error)
 
 	// PublishTransaction should publish a signed transaction to the Bitcoin
 	// blockchain.
-	PublishTransaction(ctx context.Context, signedTransaction *wire.MsgTx) (string, error)
+	PublishTransaction(ctx context.Context, signedTransaction *wire.MsgTx) error
 }
 
 type Client interface {
@@ -68,7 +71,7 @@ func (client *client) Balance(ctx context.Context, address string, confirmations
 func (client *client) FormatTransactionView(msg, txhash string) string {
 	switch client.NetworkParams().Name {
 	case "mainnet":
-		return fmt.Sprintf("%s, transaction can be viewed at https://www.blockchain.com/btc/tx/%s", msg, txhash)
+		return fmt.Sprintf("%s, transaction can be viewed at https://live.blockcypher.com/btc/tx/%s", msg, txhash)
 	case "testnet3":
 		return fmt.Sprintf("%s, transaction can be viewed at https://live.blockcypher.com/btc-testnet/tx/%s", msg, txhash)
 	default:

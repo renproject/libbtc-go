@@ -113,7 +113,7 @@ func (client *bitcoinFNClient) Confirmations(ctx context.Context, txHashStr stri
 	return tx.Confirmations, nil
 }
 
-func (client *bitcoinFNClient) ScriptFunded(ctx context.Context, address string, value, conf int64) (bool, int64, error) {
+func (client *bitcoinFNClient) ScriptFunded(ctx context.Context, address string, value int64) (bool, int64, error) {
 	if err := client.client.ImportAddressRescan(address, "scripts", false); err != nil {
 		return false, value, err
 	}
@@ -122,11 +122,35 @@ func (client *bitcoinFNClient) ScriptFunded(ctx context.Context, address string,
 	if err != nil {
 		return false, value, err
 	}
-	amount, err := client.client.GetReceivedByAddressMinConf(addr, int(conf))
+	amount, err := client.client.GetReceivedByAddressMinConf(addr, 0)
 	if err != nil {
 		return false, value, err
 	}
 	return int64(amount.ToUnit(btcutil.AmountSatoshi)) >= value, int64(amount.ToUnit(btcutil.AmountSatoshi)), nil
+}
+
+func (client *bitcoinFNClient) ScriptRedeemed(ctx context.Context, address string, value int64) (bool, int64, error) {
+	if err := client.client.ImportAddressRescan(address, "scripts", false); err != nil {
+		return false, value, err
+	}
+	net := client.NetworkParams()
+	addr, err := btcutil.DecodeAddress(address, net)
+	if err != nil {
+		return false, value, err
+	}
+	amount, err := client.client.GetReceivedByAddressMinConf(addr, 0)
+	if err != nil {
+		return false, value, err
+	}
+	utxos, err := client.GetUTXOs(ctx, address, 999999, 0)
+	if err != nil {
+		return false, value, err
+	}
+	var balance int64
+	for _, utxo := range utxos {
+		balance = balance + utxo.Amount
+	}
+	return int64(amount.ToUnit(btcutil.AmountSatoshi)) >= value && balance == 0, balance, nil
 }
 
 func (client *bitcoinFNClient) ScriptSpent(ctx context.Context, scriptAddress, spenderAddress string) (bool, string, error) {
@@ -176,12 +200,9 @@ func (client *bitcoinFNClient) ScriptSpent(ctx context.Context, scriptAddress, s
 	return false, "", fmt.Errorf("could not find the transaction")
 }
 
-func (client *bitcoinFNClient) PublishTransaction(ctx context.Context, stx *wire.MsgTx) (string, error) {
-	hash, err := client.client.SendRawTransaction(stx, false)
-	if err != nil {
-		return "", err
-	}
-	return hash.String(), nil
+func (client *bitcoinFNClient) PublishTransaction(ctx context.Context, stx *wire.MsgTx) error {
+	_, err := client.client.SendRawTransaction(stx, false)
+	return err
 }
 
 func (client *bitcoinFNClient) NetworkParams() *chaincfg.Params {

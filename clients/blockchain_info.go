@@ -255,11 +255,11 @@ func (client *blockchainInfoClient) LatestBlock(ctx context.Context) (LatestBloc
 	return latestBlock, err
 }
 
-func (client *blockchainInfoClient) PublishTransaction(ctx context.Context, stx *wire.MsgTx) (string, error) {
+func (client *blockchainInfoClient) PublishTransaction(ctx context.Context, stx *wire.MsgTx) error {
 	var stxBuffer bytes.Buffer
 	stxBuffer.Grow(stx.SerializeSize())
 	if err := stx.Serialize(&stxBuffer); err != nil {
-		return "", err
+		return err
 	}
 	data := url.Values{}
 	data.Set("tx", hex.EncodeToString(stxBuffer.Bytes()))
@@ -285,7 +285,7 @@ func (client *blockchainInfoClient) PublishTransaction(ctx context.Context, stx 
 		}
 		return nil
 	})
-	return stx.TxHash().String(), err
+	return err
 }
 
 func (client *blockchainInfoClient) ScriptSpent(ctx context.Context, script, spender string) (bool, string, error) {
@@ -293,7 +293,6 @@ func (client *blockchainInfoClient) ScriptSpent(ctx context.Context, script, spe
 	if err != nil || addrInfo.Sent == 0 {
 		return false, "", err
 	}
-
 	for _, tx := range addrInfo.Transactions {
 		for i := range tx.Inputs {
 			if tx.Inputs[i].PrevOut.Address == addrInfo.Address {
@@ -301,11 +300,10 @@ func (client *blockchainInfoClient) ScriptSpent(ctx context.Context, script, spe
 			}
 		}
 	}
-
 	return true, "", fmt.Errorf("could not find a spending transaction")
 }
 
-func (client *blockchainInfoClient) ScriptFunded(ctx context.Context, address string, value, confirmations int64) (bool, int64, error) {
+func (client *blockchainInfoClient) ScriptFunded(ctx context.Context, address string, value int64) (bool, int64, error) {
 	rawAddress, err := client.GetRawAddressInformation(ctx, address)
 	if err != nil {
 		return false, 0, err
@@ -313,7 +311,7 @@ func (client *blockchainInfoClient) ScriptFunded(ctx context.Context, address st
 	return rawAddress.Received >= value, rawAddress.Received, nil
 }
 
-func (client *client) ScriptRedeemed(ctx context.Context, address string, value int64) (bool, int64, error) {
+func (client *blockchainInfoClient) ScriptRedeemed(ctx context.Context, address string, value int64) (bool, int64, error) {
 	rawAddress, err := client.GetRawAddressInformation(ctx, address)
 	if err != nil {
 		return false, 0, err
@@ -321,19 +319,8 @@ func (client *client) ScriptRedeemed(ctx context.Context, address string, value 
 	return rawAddress.Received >= value && rawAddress.Balance == 0, rawAddress.Balance, nil
 }
 
-func (client *client) NetworkParams() *chaincfg.Params {
+func (client *blockchainInfoClient) NetworkParams() *chaincfg.Params {
 	return client.Params
-}
-
-func (client *client) FormatTransactionView(msg, txhash string) string {
-	switch client.NetworkParams().Name {
-	case "mainnet":
-		return fmt.Sprintf("%s, transaction can be viewed at https://live.blockcypher.com/btc/tx/%s", msg, txhash)
-	case "testnet3":
-		return fmt.Sprintf("%s, transaction can be viewed at https://live.blockcypher.com/btc-testnet/tx/%s", msg, txhash)
-	default:
-		panic(NewErrUnsupportedNetwork(client.NetworkParams().Name))
-	}
 }
 
 func backoff(ctx context.Context, f func() error) error {
