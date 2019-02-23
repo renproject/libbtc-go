@@ -59,13 +59,13 @@ func NewClient(core ClientCore) Client {
 func (client *client) Balance(ctx context.Context, address string, confirmations int64) (int64, error) {
 	utxos, err := client.GetUTXOs(ctx, address, 999999, confirmations)
 	if err != nil {
-		return 0, nil
+		return 0, err
 	}
 	var balance int64
 	for _, utxo := range utxos {
 		balance = balance + utxo.Amount
 	}
-	return balance, err
+	return balance, nil
 }
 
 func (client *client) FormatTransactionView(msg, txhash string) string {
