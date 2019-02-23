@@ -74,19 +74,26 @@ var _ = Describe("LibBTC", func() {
 
 	buildClients := func() []clients.Client {
 		APIClient, err := clients.NewBlockchainInfoClient("testnet")
-		Expect(err).Should(BeNil())
-
-		FNClient, err := clients.NewBitcoinFNClient("3.87.198.92:18332", "testuser", "testpassword")
-		Expect(err).Should(BeNil())
+		if err != nil {
+			panic(err)
+		}
+		FNClient, err := clients.NewBitcoinFNClient(os.Getenv("RPC_URL"), os.Getenv("RPC_USER"), os.Getenv("RPC_PASSWORD"))
+		if err != nil {
+			panic(err)
+		}
 		return []clients.Client{APIClient, FNClient}
 	}
 
 	getAccounts := func(client clients.Client) (Account, Account) {
 		mainKey, err := loadKey(44, 1, 0, 0, 0) // "m/44'/1'/0'/0/0"
-		Expect(err).Should(BeNil())
+		if err != nil {
+			panic(err)
+		}
 		mainAccount := NewAccount(client, mainKey, nil)
 		secKey, err := loadKey(44, 1, 1, 0, 0) // "m/44'/1'/1'/0/0"
-		Expect(err).Should(BeNil())
+		if err != nil {
+			panic(err)
+		}
 		secondaryAccount := NewAccount(client, secKey, nil)
 		return mainAccount, secondaryAccount
 	}
@@ -94,18 +101,20 @@ var _ = Describe("LibBTC", func() {
 	getContractDetails := func(spender btcutil.Address, net *chaincfg.Params, secret [32]byte) ([]byte, []byte, btcutil.Address) {
 		secretHash := sha256.Sum256(secret[:])
 		contract, err := buildHaskLockContract(secretHash, spender)
-		Expect(err).Should(BeNil())
+		if err != nil {
+			panic(err)
+		}
 		contractAddress, err := btcutil.NewAddressScriptHash(contract, net)
-		Expect(err).Should(BeNil())
+		if err != nil {
+			panic(err)
+		}
 		payToContractPublicKey, err := txscript.PayToAddrScript(contractAddress)
 		return contract, payToContractPublicKey, contractAddress
 	}
 
 	for _, client := range buildClients() {
 		var secret [32]byte
-		BeforeSuite(func() {
-			rand.Read(secret[:])
-		})
+		rand.Read(secret[:])
 
 		Context("when interacting with testnet", func() {
 			It("should get a valid address of an account", func() {
