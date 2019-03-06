@@ -41,6 +41,7 @@ type account struct {
 // blockchain.
 type Account interface {
 	clients.Client
+	BTCClient() clients.Client
 	Address() (btcutil.Address, error)
 	SerializedPublicKey() ([]byte, error)
 	Transfer(ctx context.Context, to string, value int64, speed TxExecutionSpeed, sendAll bool) (string, int64, error)
@@ -227,6 +228,10 @@ func (account *account) SendTransaction(
 
 func (account *account) SerializedPublicKey() ([]byte, error) {
 	return account.SerializePublicKey(account.PrivKey.PubKey())
+}
+
+func (account *account) BTCClient() clients.Client {
+	return account.Client
 }
 
 // SuggestedTxRate returns the gas price that bitcoinfees.earn.com recommends for
