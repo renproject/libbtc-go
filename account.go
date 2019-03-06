@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcd/btcec"
-	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/btcsuite/btcutil"
@@ -78,17 +77,11 @@ func NewAccount(client clients.Client, privateKey *ecdsa.PrivateKey, logger logr
 
 // Address returns the address of the given private key
 func (account *account) Address() (btcutil.Address, error) {
-	net := account.Client.NetworkParams()
 	pubKeyBytes, err := account.SerializedPublicKey()
 	if err != nil {
 		return nil, err
 	}
-	pubKey, err := btcutil.NewAddressPubKey(pubKeyBytes, net)
-	if err != nil {
-		return nil, err
-	}
-	addrString := pubKey.EncodeAddress()
-	return btcutil.DecodeAddress(addrString, net)
+	return account.PublicKeyToAddress(pubKeyBytes)
 }
 
 // Transfer bitcoins to the given address
@@ -233,16 +226,17 @@ func (account *account) SendTransaction(
 }
 
 func (account *account) SerializedPublicKey() ([]byte, error) {
-	pubKey := account.PrivKey.PubKey()
-	net := account.Client.NetworkParams()
-	switch net {
-	case &chaincfg.MainNetParams:
-		return pubKey.SerializeCompressed(), nil
-	case &chaincfg.TestNet3Params:
-		return pubKey.SerializeUncompressed(), nil
-	default:
-		return nil, NewErrUnsupportedNetwork(net.Name)
+	return account.SerializePublicKey(account.PrivKey.PubKey())
+}
+
+func (account *account) PublicKeyToAddress(pubKeyBytes []byte) (btcutil.Address, error) {
+	net := account.NetworkParams()
+	pubKey, err := btcutil.NewAddressPubKey(pubKeyBytes, net)
+	if err != nil {
+		return nil, err
 	}
+	addrString := pubKey.EncodeAddress()
+	return btcutil.DecodeAddress(addrString, net)
 }
 
 // SuggestedTxRate returns the gas price that bitcoinfees.earn.com recommends for
