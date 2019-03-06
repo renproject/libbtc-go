@@ -42,7 +42,6 @@ type account struct {
 type Account interface {
 	clients.Client
 	Address() (btcutil.Address, error)
-	PublicKeyToAddress(pubKeyBytes []byte) (btcutil.Address, error)
 	SerializedPublicKey() ([]byte, error)
 	Transfer(ctx context.Context, to string, value int64, speed TxExecutionSpeed, sendAll bool) (string, int64, error)
 	SendTransaction(
@@ -228,16 +227,6 @@ func (account *account) SendTransaction(
 
 func (account *account) SerializedPublicKey() ([]byte, error) {
 	return account.SerializePublicKey(account.PrivKey.PubKey())
-}
-
-func (account *account) PublicKeyToAddress(pubKeyBytes []byte) (btcutil.Address, error) {
-	net := account.NetworkParams()
-	pubKey, err := btcutil.NewAddressPubKey(pubKeyBytes, net)
-	if err != nil {
-		return nil, err
-	}
-	addrString := pubKey.EncodeAddress()
-	return btcutil.DecodeAddress(addrString, net)
 }
 
 // SuggestedTxRate returns the gas price that bitcoinfees.earn.com recommends for

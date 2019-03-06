@@ -7,6 +7,7 @@ import (
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/wire"
+	"github.com/btcsuite/btcutil"
 	"github.com/renproject/libbtc-go/errors"
 )
 
@@ -51,6 +52,9 @@ type Client interface {
 
 	// SerializePublicKey serializes the given public key.
 	SerializePublicKey(pubKey *btcec.PublicKey) ([]byte, error)
+
+	// PublicKeyToAddress converts the public key to a bitcoin address.
+	PublicKeyToAddress(pubKeyBytes []byte) (btcutil.Address, error)
 }
 
 type client struct {
@@ -94,4 +98,14 @@ func (client *client) SerializePublicKey(pubKey *btcec.PublicKey) ([]byte, error
 	default:
 		return nil, errors.NewErrUnsupportedNetwork(net.Name)
 	}
+}
+
+func (client *client) PublicKeyToAddress(pubKeyBytes []byte) (btcutil.Address, error) {
+	net := client.NetworkParams()
+	pubKey, err := btcutil.NewAddressPubKey(pubKeyBytes, net)
+	if err != nil {
+		return nil, err
+	}
+	addrString := pubKey.EncodeAddress()
+	return btcutil.DecodeAddress(addrString, net)
 }
