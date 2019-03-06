@@ -42,6 +42,7 @@ type account struct {
 type Account interface {
 	clients.Client
 	Address() (btcutil.Address, error)
+	PublicKeyToAddress(pubKeyBytes []byte) (btcutil.Address, error)
 	SerializedPublicKey() ([]byte, error)
 	Transfer(ctx context.Context, to string, value int64, speed TxExecutionSpeed, sendAll bool) (string, int64, error)
 	SendTransaction(
