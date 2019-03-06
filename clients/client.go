@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/wire"
+	"github.com/renproject/libbtc-go/errors"
 )
 
 type UTXO struct {
@@ -46,6 +48,9 @@ type Client interface {
 	// FormatTransactionView formats the message and txhash into a user friendly
 	// message.
 	FormatTransactionView(msg, txhash string) string
+
+	// SerializePublicKey serializes the given public key.
+	SerializePublicKey(pubKey *btcec.PublicKey) ([]byte, error)
 }
 
 type client struct {
@@ -76,5 +81,17 @@ func (client *client) FormatTransactionView(msg, txhash string) string {
 		return fmt.Sprintf("%s, transaction can be viewed at https://live.blockcypher.com/btc-testnet/tx/%s", msg, txhash)
 	default:
 		return ""
+	}
+}
+
+func (client *client) SerializePublicKey(pubKey *btcec.PublicKey) ([]byte, error) {
+	net := client.NetworkParams()
+	switch net {
+	case &chaincfg.MainNetParams:
+		return pubKey.SerializeCompressed(), nil
+	case &chaincfg.TestNet3Params:
+		return pubKey.SerializeUncompressed(), nil
+	default:
+		return nil, errors.NewErrUnsupportedNetwork(net.Name)
 	}
 }
