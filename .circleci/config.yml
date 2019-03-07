@@ -13,7 +13,10 @@ jobs:
     <<: *defaults
     steps:
       - checkout
+      - run:
+          name: Installing dependencies
+          command: go get -v -t -d ./...
+      - run:
+          name: Running tests
+          command: go test -v ./...
 
-      # specify any bash command here prefixed with `run: `
-      - run: go get -v -t -d ./...
-      - run: go test -v ./...
