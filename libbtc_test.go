@@ -72,10 +72,6 @@ var _ = Describe("LibBTC", func() {
 	}
 
 	buildClients := func() []Client {
-		os.Setenv("RPC_URL", "3.87.198.92:18332")
-		os.Setenv("RPC_USER", "testuser")
-		os.Setenv("RPC_PASSWORD", "testpassword")
-
 		// APIClient, err := NewBlockchainInfoClient("testnet")
 		// if err != nil {
 		// 	panic(err)
