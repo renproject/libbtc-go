@@ -1,4 +1,1 @@
-LibBTC
-===============
-
-[![CircleCI](https://circleci.com/gh/renproject/libbtc-go/tree/master.svg?style=svg)](https://circleci.com/gh/renproject/libbtc-go/tree/master)
+# LibBTC &middot; [![GitHub license](https://img.shields.io/badge/license-GPLv3-blue.svg)](https://github.com/renproject/libbtc-go/blob/master/LICENSE) [![CircleCI Status](https://circleci.com/gh/renproject/libbtc-go.svg?style=shield&circle-token=:circle-token)](https://circleci.com/gh/renproject/libbtc-go)
