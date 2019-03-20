@@ -118,14 +118,6 @@ type blockchainInfoClient struct {
 	Params *chaincfg.Params
 }
 
-func NewBlockchainInfoClient(network string) (Client, error) {
-	core, err := NewBlockchainInfoClientCore(network)
-	if err != nil {
-		return nil, err
-	}
-	return NewClient(core), nil
-}
-
 func NewBlockchainInfoClientCore(network string) (ClientCore, error) {
 	network = strings.ToLower(network)
 	switch network {

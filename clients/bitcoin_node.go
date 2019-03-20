@@ -19,14 +19,6 @@ type bitcoinFNClient struct {
 	params  *chaincfg.Params
 }
 
-func NewBitcoinFNClient(host, user, password string) (Client, error) {
-	core, err := NewBitcoinFNClientCore(host, user, password)
-	if err != nil {
-		return nil, err
-	}
-	return NewClient(core), nil
-}
-
 func NewBitcoinFNClientCore(host, user, password string) (ClientCore, error) {
 	client, err := rpcclient.New(
 		&rpcclient.ConnConfig{
