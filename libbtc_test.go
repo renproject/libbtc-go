@@ -13,7 +13,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/renproject/libbtc-go"
-	"github.com/renproject/libbtc-go/clients"
 
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcd/chaincfg"
@@ -72,19 +71,23 @@ var _ = Describe("LibBTC", func() {
 		return b.Script()
 	}
 
-	buildClients := func() []clients.Client {
-		APIClient, err := clients.NewBlockchainInfoClient("testnet")
+	buildClients := func() []Client {
+		os.Setenv("RPC_URL", "3.87.198.92:18332")
+		os.Setenv("RPC_USER", "testuser")
+		os.Setenv("RPC_PASSWORD", "testpassword")
+
+		// APIClient, err := NewBlockchainInfoClient("testnet")
+		// if err != nil {
+		// 	panic(err)
+		// }
+		FNClient, err := NewBitcoinFNClient(os.Getenv("RPC_URL"), os.Getenv("RPC_USER"), os.Getenv("RPC_PASSWORD"))
 		if err != nil {
 			panic(err)
 		}
-		FNClient, err := clients.NewBitcoinFNClient(os.Getenv("RPC_URL"), os.Getenv("RPC_USER"), os.Getenv("RPC_PASSWORD"))
-		if err != nil {
-			panic(err)
-		}
-		return []clients.Client{APIClient, FNClient}
+		return []Client{ /*APIClient,*/ FNClient}
 	}
 
-	getAccounts := func(client clients.Client) (Account, Account) {
+	getAccounts := func(client Client) (Account, Account) {
 		mainKey, err := loadKey(44, 1, 0, 0, 0) // "m/44'/1'/0'/0/0"
 		if err != nil {
 			panic(err)

@@ -14,7 +14,6 @@ import (
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/btcsuite/btcutil"
-	"github.com/renproject/libbtc-go/clients"
 	"github.com/sirupsen/logrus"
 )
 
@@ -33,15 +32,15 @@ const (
 type account struct {
 	PrivKey *btcec.PrivateKey
 	Logger  logrus.FieldLogger
-	clients.Client
+	Client
 }
 
 // Account is an Bitcoin external account that can sign and submit transactions
 // to the Bitcoin blockchain. An Account is an abstraction over the Bitcoin
 // blockchain.
 type Account interface {
-	clients.Client
-	BTCClient() clients.Client
+	Client
+	BTCClient() Client
 	Address() (btcutil.Address, error)
 	SerializedPublicKey() ([]byte, error)
 	Transfer(ctx context.Context, to string, value int64, speed TxExecutionSpeed, sendAll bool) (string, int64, error)
@@ -59,7 +58,7 @@ type Account interface {
 
 // NewAccount returns a user account for the provided private key which is
 // connected to a Bitcoin client.
-func NewAccount(client clients.Client, privateKey *ecdsa.PrivateKey, logger logrus.FieldLogger) Account {
+func NewAccount(client Client, privateKey *ecdsa.PrivateKey, logger logrus.FieldLogger) Account {
 	if logger == nil {
 		nullLogger := logrus.New()
 		logFile, err := os.OpenFile(os.DevNull, os.O_APPEND|os.O_WRONLY, 0666)
@@ -230,7 +229,7 @@ func (account *account) SerializedPublicKey() ([]byte, error) {
 	return account.SerializePublicKey(account.PrivKey.PubKey())
 }
 
-func (account *account) BTCClient() clients.Client {
+func (account *account) BTCClient() Client {
 	return account.Client
 }
 
