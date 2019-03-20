@@ -57,12 +57,12 @@ func (tx *tx) fund(addr btcutil.Address) error {
 		return NewErrInsufficientBalance(addr.EncodeAddress(), value+MaxBitcoinFee, balance)
 	}
 
-	utxos, err := tx.account.GetUnspentOutputs(tx.ctx, addr.EncodeAddress(), 1000, 0)
+	utxos, err := tx.account.GetUTXOs(tx.ctx, addr.EncodeAddress(), 999999, 0)
 	if err != nil {
 		return err
 	}
 
-	for _, j := range utxos.Outputs {
+	for _, j := range utxos {
 		ScriptPubKey, err := hex.DecodeString(j.ScriptPubKey)
 		if err != nil {
 			return err
@@ -75,15 +75,11 @@ func (tx *tx) fund(addr btcutil.Address) error {
 			}
 		}
 		tx.receiveValues = append(tx.receiveValues, j.Amount)
-		hashBytes, err := hex.DecodeString(j.TransactionHash)
+		hash, err := chainhash.NewHashFromStr(j.TxHash)
 		if err != nil {
 			return err
 		}
-		hash, err := chainhash.NewHash(hashBytes)
-		if err != nil {
-			return err
-		}
-		tx.msgTx.AddTxIn(wire.NewTxIn(wire.NewOutPoint(hash, j.TransactionOutputNumber), []byte{}, [][]byte{}))
+		tx.msgTx.AddTxIn(wire.NewTxIn(wire.NewOutPoint(hash, j.Vout), []byte{}, [][]byte{}))
 		value = value - j.Amount
 		if value <= -MaxBitcoinFee {
 			break
@@ -103,11 +99,11 @@ func (tx *tx) fund(addr btcutil.Address) error {
 }
 
 func (tx *tx) fundAll(addr btcutil.Address) error {
-	utxos, err := tx.account.GetUnspentOutputs(tx.ctx, addr.EncodeAddress(), 1000, 0)
+	utxos, err := tx.account.GetUTXOs(tx.ctx, addr.EncodeAddress(), 1000, 0)
 	if err != nil {
 		return err
 	}
-	for _, j := range utxos.Outputs {
+	for _, j := range utxos {
 		ScriptPubKey, err := hex.DecodeString(j.ScriptPubKey)
 		if err != nil {
 			return err
@@ -120,15 +116,11 @@ func (tx *tx) fundAll(addr btcutil.Address) error {
 			}
 		}
 		tx.receiveValues = append(tx.receiveValues, j.Amount)
-		hashBytes, err := hex.DecodeString(j.TransactionHash)
+		hash, err := chainhash.NewHashFromStr(j.TxHash)
 		if err != nil {
 			return err
 		}
-		hash, err := chainhash.NewHash(hashBytes)
-		if err != nil {
-			return err
-		}
-		tx.msgTx.AddTxIn(wire.NewTxIn(wire.NewOutPoint(hash, j.TransactionOutputNumber), []byte{}, [][]byte{}))
+		tx.msgTx.AddTxIn(wire.NewTxIn(wire.NewOutPoint(hash, j.Vout), []byte{}, [][]byte{}))
 	}
 	return nil
 }
@@ -224,10 +216,5 @@ func (tx *tx) verify() error {
 }
 
 func (tx *tx) submit() error {
-	var stxBuffer bytes.Buffer
-	stxBuffer.Grow(tx.msgTx.SerializeSize())
-	if err := tx.msgTx.Serialize(&stxBuffer); err != nil {
-		return err
-	}
-	return tx.account.PublishTransaction(tx.ctx, stxBuffer.Bytes())
+	return tx.account.PublishTransaction(tx.ctx, tx.msgTx)
 }
