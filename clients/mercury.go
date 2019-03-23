@@ -30,7 +30,7 @@ func NewMercuryClientCore(network string) (ClientCore, error) {
 		}, nil
 	case "testnet", "testnet3", "":
 		return &mercuryClient{
-			URL:    "http://127.0.0.1:8132/btc-testnet3",
+			URL:    "https://ren-mercury.herokuapp.com/btc-testnet3",
 			Params: &chaincfg.TestNet3Params,
 		}, nil
 	default:
