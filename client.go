@@ -92,3 +92,11 @@ func NewBitcoinFNClient(host, user, password string) (Client, error) {
 	}
 	return &client{core}, nil
 }
+
+func NewMercuryClient(network string) (Client, error) {
+	core, err := clients.NewMercuryClientCore(network)
+	if err != nil {
+		return nil, err
+	}
+	return &client{core}, nil
+}

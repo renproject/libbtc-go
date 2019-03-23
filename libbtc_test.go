@@ -72,15 +72,15 @@ var _ = Describe("LibBTC", func() {
 	}
 
 	buildClients := func() []Client {
-		// APIClient, err := NewBlockchainInfoClient("testnet")
-		// if err != nil {
-		// 	panic(err)
-		// }
-		FNClient, err := NewBitcoinFNClient(os.Getenv("RPC_URL"), os.Getenv("RPC_USER"), os.Getenv("RPC_PASSWORD"))
+		APIClient, err := NewMercuryClient("testnet")
 		if err != nil {
 			panic(err)
 		}
-		return []Client{ /*APIClient,*/ FNClient}
+		// FNClient, err := NewBitcoinFNClient(os.Getenv("RPC_URL"), os.Getenv("RPC_USER"), os.Getenv("RPC_PASSWORD"))
+		// if err != nil {
+		// 	panic(err)
+		// }
+		return []Client{APIClient /*, FNClient*/}
 	}
 
 	getAccounts := func(client Client) (Account, Account) {
@@ -209,6 +209,9 @@ var _ = Describe("LibBTC", func() {
 				Expect(err).Should(BeNil())
 				P2PKHScript, err := txscript.PayToAddrScript(spender)
 				Expect(err).Should(BeNil())
+
+				fmt.Println("before")
+
 				// building a transaction to transfer bitcoin to the secondary address
 				_, _, err = secondaryAccount.SendTransaction(
 					context.Background(),
@@ -229,6 +232,7 @@ var _ = Describe("LibBTC", func() {
 						builder.AddData(secret[:])
 					},
 					func(msgtx *wire.MsgTx) bool {
+						fmt.Println("post-con check", contractAddress.EncodeAddress(), spender.EncodeAddress())
 						spent, _, err := secondaryAccount.ScriptSpent(context.Background(), contractAddress.EncodeAddress(), spender.EncodeAddress())
 						if err != nil {
 							return false
