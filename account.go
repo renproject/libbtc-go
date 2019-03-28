@@ -1,6 +1,7 @@
 package libbtc
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"encoding/json"
@@ -223,6 +224,87 @@ func (account *account) SendTransaction(
 			}
 		}
 	}
+}
+
+func (account *account) BuildTransaction(
+	ctx context.Context,
+	contract []byte,
+	speed TxExecutionSpeed,
+	updateTxIn func(*wire.TxIn),
+	preCond func(*wire.MsgTx) bool,
+	f func(*txscript.ScriptBuilder),
+	postCond func(*wire.MsgTx) bool,
+	sendAll bool,
+) (string, []byte, error) {
+	// Current Bitcoin Transaction Version (2).
+	tx := account.newTx(ctx, wire.NewMsgTx(2))
+	if preCond != nil && !preCond(tx.msgTx) {
+		return "", nil, ErrPreConditionCheckFailed
+	}
+
+	var address btcutil.Address
+	var err error
+	if contract == nil {
+		address, err = account.Address()
+		if err != nil {
+			return "", nil, err
+		}
+	} else {
+		address, err = btcutil.NewAddressScriptHash(contract, account.NetworkParams())
+		if err != nil {
+			return "", nil, err
+		}
+	}
+
+	account.Logger.Infof("funding %s, with fee %d SAT/byte", address.EncodeAddress(), speed)
+	if sendAll {
+		if err := tx.fundAll(address); err != nil {
+			return "", nil, err
+		}
+	} else {
+		if err := tx.fund(address); err != nil {
+			return "", nil, err
+		}
+	}
+	account.Logger.Info("successfully funded the transaction")
+
+	account.Logger.Info("estimating stx size")
+	size, err := tx.estimateSTXSize(f, updateTxIn, contract)
+	if err != nil {
+		return "", nil, err
+	}
+	account.Logger.Info("successfully estimated stx size")
+
+	rate, err := SuggestedTxRate(speed)
+	if err != nil {
+		rate = 30
+	}
+
+	txFee := int64(size) * rate
+	if txFee > MaxBitcoinFee-BitcoinDust {
+		txFee = MaxBitcoinFee
+	}
+	tx.msgTx.TxOut[len(tx.msgTx.TxOut)-1].Value -= txFee
+
+	account.Logger.Info("signing the tx")
+	if err := tx.sign(f, updateTxIn, contract); err != nil {
+		return "", nil, err
+	}
+	account.Logger.Info("successfully signined the tx")
+
+	account.Logger.Info("verifying the tx")
+	if err := tx.verify(); err != nil {
+		return "", nil, err
+	}
+	account.Logger.Info("successfully verified the tx")
+
+	var stxBuffer bytes.Buffer
+	stxBuffer.Grow(tx.msgTx.SerializeSize())
+	if err := tx.msgTx.Serialize(&stxBuffer); err != nil {
+		return "", nil, err
+	}
+
+	return tx.msgTx.TxHash().String(), stxBuffer.Bytes(), nil
 }
 
 func (account *account) SerializedPublicKey() ([]byte, error) {
