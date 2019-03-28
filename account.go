@@ -45,6 +45,7 @@ type Account interface {
 	Address() (btcutil.Address, error)
 	SerializedPublicKey() ([]byte, error)
 	Transfer(ctx context.Context, to string, value int64, speed TxExecutionSpeed, sendAll bool) (string, int64, error)
+	BuildTransfer(ctx context.Context, to string, value int64, speed TxExecutionSpeed, sendAll bool) (string, []byte, error)
 	SendTransaction(
 		ctx context.Context,
 		script []byte,
@@ -114,6 +115,43 @@ func (account *account) Transfer(ctx context.Context, to string, value int64, sp
 		return "", 0, err
 	}
 	return account.SendTransaction(
+		ctx,
+		nil,
+		speed,
+		nil,
+		func(tx *wire.MsgTx) bool {
+			P2PKHScript, err := txscript.PayToAddrScript(address)
+			if err != nil {
+				return false
+			}
+			tx.AddTxOut(wire.NewTxOut(value, P2PKHScript))
+			return true
+		},
+		nil,
+		nil,
+		sendAll,
+	)
+}
+
+// BuildTransfer bitcoins to the given address
+func (account *account) BuildTransfer(ctx context.Context, to string, value int64, speed TxExecutionSpeed, sendAll bool) (string, []byte, error) {
+	if sendAll {
+		me, err := account.Address()
+		if err != nil {
+			return "", nil, err
+		}
+		balance, err := account.Balance(ctx, me.EncodeAddress(), 0)
+		if err != nil {
+			return "", nil, err
+		}
+		value = balance
+	}
+
+	address, err := btcutil.DecodeAddress(to, account.NetworkParams())
+	if err != nil {
+		return "", nil, err
+	}
+	return account.BuildTransaction(
 		ctx,
 		nil,
 		speed,
