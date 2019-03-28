@@ -55,6 +55,16 @@ type Account interface {
 		postCond func(*wire.MsgTx) bool,
 		sendAll bool,
 	) (string, int64, error)
+	BuildTransaction(
+		ctx context.Context,
+		contract []byte,
+		speed TxExecutionSpeed,
+		updateTxIn func(*wire.TxIn),
+		preCond func(*wire.MsgTx) bool,
+		f func(*txscript.ScriptBuilder),
+		postCond func(*wire.MsgTx) bool,
+		sendAll bool,
+	) (string, []byte, error)
 }
 
 // NewAccount returns a user account for the provided private key which is
