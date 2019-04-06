@@ -272,6 +272,9 @@ func (client *blockchainInfoClient) PublishTransaction(ctx context.Context, stx 
 			return err
 		}
 		stxResult := string(stxResultBytes)
+		if strings.Contains(stxResult, "Transaction already exists") {
+			return nil
+		}
 		if !strings.Contains(stxResult, "Transaction Submitted") {
 			return errors.NewErrBitcoinSubmitTx(stxResult)
 		}
