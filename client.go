@@ -26,6 +26,10 @@ type Client interface {
 
 	// PublicKeyToAddress converts the public key to a bitcoin address.
 	PublicKeyToAddress(pubKeyBytes []byte) (btcutil.Address, error)
+
+	// SlaveAddress creates an a deterministic address that can be spent by the
+	// private key correspndong to the given master public key hash
+	SlaveAddress(mpkh, nonce []byte) (btcutil.Address, error)
 }
 
 type client struct {

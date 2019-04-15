@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"reflect"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -136,6 +137,17 @@ var _ = Describe("LibBTC", func() {
 				Expect(btcec.IsCompressedPubKey(pubKey)).Should(BeFalse())
 				_, err = btcec.ParsePubKey(pubKey, btcec.S256())
 				Expect(err).Should(BeNil())
+			})
+
+			It("should create a valid deterministic slave address", func() {
+				mainAccount, _ := getAccounts(client)
+				pubKey, err := mainAccount.SerializedPublicKey()
+				Expect(err).Should(BeNil())
+				nonce := [20]byte{}
+				rand.Read(nonce[:])
+				slaveAddr1, err := mainAccount.SlaveAddress(btcutil.Hash160(pubKey), nonce[:])
+				slaveAddr2, err := mainAccount.SlaveAddress(btcutil.Hash160(pubKey), nonce[:])
+				Expect(reflect.DeepEqual(slaveAddr1, slaveAddr2)).Should(BeTrue())
 			})
 
 			It("should get the balance of an address", func() {
