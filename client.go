@@ -30,6 +30,9 @@ type Client interface {
 	// SlaveAddress creates an a deterministic address that can be spent by the
 	// private key correspndong to the given master public key hash
 	SlaveAddress(mpkh, nonce []byte) (btcutil.Address, error)
+
+	// UTXOCount returns the number of utxos that can be spent.
+	UTXOCount(ctx context.Context, address string, confirmations int64) (int, error)
 }
 
 type client struct {
@@ -46,6 +49,14 @@ func (client *client) Balance(ctx context.Context, address string, confirmations
 		balance = balance + utxo.Amount
 	}
 	return balance, nil
+}
+
+func (client *client) UTXOCount(ctx context.Context, address string, confirmations int64) (int, error) {
+	utxos, err := client.GetUTXOs(ctx, address, 999999, confirmations)
+	if err != nil {
+		return 0, err
+	}
+	return len(utxos), nil
 }
 
 func (client *client) FormatTransactionView(msg, txhash string) string {
