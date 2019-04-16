@@ -27,9 +27,13 @@ type Client interface {
 	// PublicKeyToAddress converts the public key to a bitcoin address.
 	PublicKeyToAddress(pubKeyBytes []byte) (btcutil.Address, error)
 
-	// SlaveAddress creates an a deterministic address that can be spent by the
-	// private key correspndong to the given master public key hash
+	// SlaveAddress creates an a deterministic unique address that can be spent
+	// by the private key correspndong to the given master public key hash
 	SlaveAddress(mpkh, nonce []byte) (btcutil.Address, error)
+
+	// SlaveScript creates a deterministic unique script that can be spent by
+	// the private key correspndong to the given master public key hash
+	SlaveScript(mpkh, nonce []byte) ([]byte, error)
 
 	// UTXOCount returns the number of utxos that can be spent.
 	UTXOCount(ctx context.Context, address string, confirmations int64) (int, error)

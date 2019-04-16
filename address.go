@@ -6,6 +6,14 @@ import (
 )
 
 func (client *client) SlaveAddress(mpkh, nonce []byte) (btcutil.Address, error) {
+	script, err := client.SlaveScript(mpkh, nonce)
+	if err != nil {
+		return nil, nil
+	}
+	return btcutil.NewAddressScriptHash(script, client.NetworkParams())
+}
+
+func (client *client) SlaveScript(mpkh, nonce []byte) ([]byte, error) {
 	b := txscript.NewScriptBuilder()
 	b.AddData(nonce)
 	b.AddOp(txscript.OP_DROP)
@@ -14,9 +22,5 @@ func (client *client) SlaveAddress(mpkh, nonce []byte) (btcutil.Address, error) 
 	b.AddData(mpkh)
 	b.AddOp(txscript.OP_EQUALVERIFY)
 	b.AddOp(txscript.OP_CHECKSIG)
-	script, err := b.Script()
-	if err != nil {
-		return nil, nil
-	}
-	return btcutil.NewAddressScriptHash(script, client.NetworkParams())
+	return b.Script()
 }
