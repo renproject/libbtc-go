@@ -272,7 +272,7 @@ func (client *blockchainInfoClient) PublishTransaction(ctx context.Context, stx 
 			return err
 		}
 		stxResult := string(stxResultBytes)
-		if strings.Contains(stxResult, "Transaction already exists") {
+		if strings.Contains(stxResult, "Transaction already exists") || strings.Contains(stxResult, "txn-mempool-conflict") {
 			return nil
 		}
 		if !strings.Contains(stxResult, "Transaction Submitted") {
