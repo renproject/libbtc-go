@@ -188,6 +188,9 @@ func fundBtcTx(ctx context.Context, from btcutil.Address, script []byte, client 
 	if err != nil {
 		return 0, nil, err
 	}
+	if len(utxos) < n {
+		return 0, nil, fmt.Errorf("insufficient utxos requirex: %d got: %d", n, len(utxos))
+	}
 
 	var amount int64
 	var scriptPubKey []byte
