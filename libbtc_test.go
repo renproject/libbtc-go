@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -169,6 +170,86 @@ var _ = Describe("LibBTC", func() {
 				_, _, err = mainAccount.Transfer(context.Background(), secAddr.String(), 10000, Fast, false)
 				Expect(err).Should(BeNil())
 				finalBalance, err := secondaryAccount.Balance(context.Background(), secAddr.String(), 0)
+				Expect(err).Should(BeNil())
+				Expect(finalBalance - initialBalance).Should(Equal(int64(10000)))
+			})
+
+			It("should transfer 10000 SAT to another address", func() {
+				mainKey, err := loadKey(44, 1, 0, 0, 0) // "m/44'/1'/0'/0/0"
+				Expect(err).Should(BeNil())
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				mainPrivKey := (*btcec.PrivateKey)(mainKey)
+
+				mainAccount, secondaryAccount := getAccounts(client)
+				mainAddr, err := mainAccount.Address()
+				Expect(err).Should(BeNil())
+				secAddr, err := secondaryAccount.Address()
+				Expect(err).Should(BeNil())
+				count, err := client.UTXOCount(ctx, mainAddr.String(), 0)
+				Expect(err).Should(BeNil())
+				builder := NewTxBuilder(client)
+				tx, err := builder.Build(ctx, mainKey.PublicKey, secAddr.String(), nil, 10000, int64(count), 0)
+				Expect(err).Should(BeNil())
+
+				hashes := tx.Hashes()
+				sigs := make([]*btcec.Signature, len(hashes))
+				for i, hash := range hashes {
+					sigs[i], err = mainPrivKey.Sign(hash)
+					Expect(err).Should(BeNil())
+				}
+				Expect(tx.InjectSigs(sigs)).Should(BeNil())
+
+				initialBalance, err := secondaryAccount.Balance(context.Background(), secAddr.String(), 0)
+				Expect(err).Should(BeNil())
+				// building a transaction to transfer bitcoin to the secondary address
+				txHash, err := tx.Submit(ctx)
+				fmt.Printf(mainAccount.FormatTransactionView("successfully submitted transfer tx", hex.EncodeToString(txHash)))
+				finalBalance, err := secondaryAccount.Balance(context.Background(), secAddr.String(), 0)
+				Expect(err).Should(BeNil())
+				Expect(finalBalance - initialBalance).Should(Equal(int64(10000)))
+			})
+
+			It("should transfer 10000 SAT from a slave address", func() {
+				mainKey, err := loadKey(44, 1, 0, 0, 0) // "m/44'/1'/0'/0/0"
+				Expect(err).Should(BeNil())
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				mainPrivKey := (*btcec.PrivateKey)(mainKey)
+
+				mainAccount, secondaryAccount := getAccounts(client)
+				nonce := [32]byte{}
+				pubKeyBytes, err := client.SerializePublicKey((*btcec.PublicKey)(&mainPrivKey.PublicKey))
+				Expect(err).Should(BeNil())
+				slaveAddr, err := mainAccount.SlaveAddress(btcutil.Hash160(pubKeyBytes), nonce[:])
+				Expect(err).Should(BeNil())
+				slaveScript, err := mainAccount.SlaveScript(btcutil.Hash160(pubKeyBytes), nonce[:])
+				Expect(err).Should(BeNil())
+				_, _, err = mainAccount.Transfer(ctx, slaveAddr.String(), 20000, Fast, false)
+				Expect(err).Should(BeNil())
+				mainAddr, err := mainAccount.Address()
+				Expect(err).Should(BeNil())
+				count, err := client.UTXOCount(ctx, mainAddr.String(), 0)
+				Expect(err).Should(BeNil())
+				builder := NewTxBuilder(client)
+				tx, err := builder.Build(ctx, mainKey.PublicKey, mainAddr.String(), slaveScript, 10000, int64(count), 1)
+				Expect(err).Should(BeNil())
+
+				hashes := tx.Hashes()
+				sigs := make([]*btcec.Signature, len(hashes))
+				for i, hash := range hashes {
+					sigs[i], err = mainPrivKey.Sign(hash)
+					Expect(err).Should(BeNil())
+				}
+				Expect(tx.InjectSigs(sigs)).Should(BeNil())
+
+				initialBalance, err := secondaryAccount.Balance(context.Background(), mainAddr.String(), 0)
+				Expect(err).Should(BeNil())
+				// building a transaction to transfer bitcoin to the secondary address
+				txHash, err := tx.Submit(ctx)
+				Expect(err).Should(BeNil())
+				fmt.Printf(mainAccount.FormatTransactionView("successfully submitted transfer tx", hex.EncodeToString(txHash)))
+				finalBalance, err := secondaryAccount.Balance(context.Background(), mainAddr.String(), 0)
 				Expect(err).Should(BeNil())
 				Expect(finalBalance - initialBalance).Should(Equal(int64(10000)))
 			})
