@@ -6,7 +6,6 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
-	"math/big"
 
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
@@ -26,12 +25,13 @@ func NewTxBuilder(client Client) TxBuilder {
 }
 
 type TxBuilder interface {
-	NewTx(ctx context.Context, pubKey ecdsa.PublicKey, to string, contract []byte, value, mwIns, scriptIns int64) (Tx, error)
+	Build(ctx context.Context, pubKey ecdsa.PublicKey, to string, contract []byte, value, mwIns, scriptIns int64) (Tx, error)
 }
 
 type Tx interface {
 	Hashes() [][]byte
-	Submit(ctx context.Context, sigs [][2][]byte) (string, error)
+	InjectSigs(sigs []*btcec.Signature) error
+	Submit(ctx context.Context) ([]byte, error)
 }
 
 type transaction struct {
@@ -44,7 +44,7 @@ type transaction struct {
 	mwIns     int64
 }
 
-func (builder *txBuilder) NewTx(
+func (builder *txBuilder) Build(
 	ctx context.Context,
 	pubKey ecdsa.PublicKey,
 	to string,
@@ -146,17 +146,13 @@ func (tx *transaction) Hashes() [][]byte {
 	return tx.hashes
 }
 
-func (tx *transaction) Submit(ctx context.Context, sigs [][2][]byte) (string, error) {
+func (tx *transaction) InjectSigs(sigs []*btcec.Signature) error {
 	pubKey := (*btcec.PublicKey)(&tx.publicKey)
 	serializedPublicKey, err := tx.client.SerializePublicKey(pubKey)
 	if err != nil {
-		return "", err
+		return err
 	}
-	for i, msgSig := range sigs {
-		sig := btcec.Signature{
-			R: new(big.Int).SetBytes(msgSig[0]),
-			S: new(big.Int).SetBytes(msgSig[1]),
-		}
+	for i, sig := range sigs {
 		builder := txscript.NewScriptBuilder()
 		builder.AddData(append(sig.Serialize(), byte(txscript.SigHashAll)))
 		builder.AddData(serializedPublicKey)
@@ -165,14 +161,18 @@ func (tx *transaction) Submit(ctx context.Context, sigs [][2][]byte) (string, er
 		}
 		sigScript, err := builder.Script()
 		if err != nil {
-			return "", err
+			return err
 		}
 		tx.msgTx.TxIn[i].SignatureScript = sigScript
 	}
+	return nil
+}
+
+func (tx *transaction) Submit(ctx context.Context) ([]byte, error) {
 	if err := tx.client.PublishTransaction(ctx, tx.msgTx); err != nil {
-		return "", err
+		return nil, err
 	}
-	return tx.msgTx.TxHash().String(), nil
+	return hex.DecodeString(tx.msgTx.TxHash().String())
 }
 
 func fundBtcTx(ctx context.Context, from btcutil.Address, script []byte, client Client, msgTx *wire.MsgTx, n int) (int64, []byte, error) {
