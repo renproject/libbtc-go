@@ -204,6 +204,8 @@ var _ = Describe("LibBTC", func() {
 				Expect(err).Should(BeNil())
 				// building a transaction to transfer bitcoin to the secondary address
 				txHash, err := tx.Submit(ctx)
+				Expect(err).Should(BeNil())
+
 				fmt.Printf(mainAccount.FormatTransactionView("successfully submitted transfer tx", hex.EncodeToString(txHash)))
 				finalBalance, err := secondaryAccount.Balance(context.Background(), secAddr.String(), 0)
 				Expect(err).Should(BeNil())
