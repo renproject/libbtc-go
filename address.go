@@ -24,3 +24,8 @@ func (client *client) SlaveScript(mpkh, nonce []byte) ([]byte, error) {
 	b.AddOp(txscript.OP_CHECKSIG)
 	return b.Script()
 }
+
+func (client *client) Validate(address string) error {
+	_, err := btcutil.DecodeAddress(address, client.NetworkParams())
+	return err
+}

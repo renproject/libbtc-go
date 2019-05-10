@@ -37,6 +37,9 @@ type Client interface {
 
 	// UTXOCount returns the number of utxos that can be spent.
 	UTXOCount(ctx context.Context, address string, confirmations int64) (int, error)
+
+	// Validate returns whether an address is valid or not
+	Validate(address string) error
 }
 
 type client struct {
