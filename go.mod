@@ -20,6 +20,7 @@ require (
 	github.com/onsi/gomega v1.5.0
 	github.com/renproject/libeth-go v0.0.0-20190430063350-95b18e30b8af // indirect
 	github.com/renproject/mercury v0.0.0-20190501041323-cbd9733b74c3
+	github.com/renproject/rencrypto v0.0.0-20190325055151-d9d7c4172d85 // indirect
 	github.com/republicprotocol/libbtc-go v0.0.0-20190218031145-13bd5bd75d7c
 	github.com/republicprotocol/renvm-go v0.0.0-20190320052535-795f34011fa2
 	github.com/republicprotocol/tau v0.0.0-20190116001021-54c2ea27fbc3
