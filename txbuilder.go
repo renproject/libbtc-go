@@ -26,6 +26,7 @@ func NewTxBuilder(client Client) TxBuilder {
 
 type TxBuilder interface {
 	Build(ctx context.Context, pubKey ecdsa.PublicKey, to string, contract []byte, value, mwIns, scriptIns int64) (Tx, error)
+	BuildOmni(ctx context.Context, pubKey ecdsa.PublicKey, to string, contract []byte, token, tokenValue, btcValue, mwIns, scriptIns int64) (Tx, error)
 }
 
 type Tx interface {
