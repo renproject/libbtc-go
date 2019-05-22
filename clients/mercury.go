@@ -147,6 +147,10 @@ func (client *mercuryClient) PublishTransaction(ctx context.Context, stx *wire.M
 		return err
 	}
 
+	// TODO: remove the next two lines after testing
+	fmt.Println(hex.EncodeToString(stxBuffer.Bytes()))
+	return nil
+
 	req := btc.PostTransactionRequest{
 		SignedTransaction: hex.EncodeToString(stxBuffer.Bytes()),
 	}
