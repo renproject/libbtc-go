@@ -117,7 +117,7 @@ func (builder *txBuilder) Build(
 	var hashes [][]byte
 
 	for i := 0; i < int(mwIns); i++ {
-		hash, err := txscript.CalcSignatureHash(pubKeyScript, txscript.SigHashAll, msgTx, 0)
+		hash, err := txscript.CalcSignatureHash(pubKeyScript, txscript.SigHashAll, msgTx, i)
 		if err != nil {
 			return nil, err
 		}
