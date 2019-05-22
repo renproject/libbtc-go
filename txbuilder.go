@@ -52,6 +52,11 @@ func (builder *txBuilder) Build(
 	contract []byte,
 	value, mwIns, scriptIns int64,
 ) (Tx, error) {
+	if value < builder.fee+builder.dust {
+		return nil, fmt.Errorf("minimum transfer amount is : %d", builder.dust+builder.fee+1)
+	}
+	value -= builder.fee
+
 	pubKeyBytes, err := builder.client.SerializePublicKey((*btcec.PublicKey)(&pubKey))
 	if err != nil {
 		return nil, err
