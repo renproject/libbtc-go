@@ -159,6 +159,9 @@ func (tx *transaction) InjectSigs(sigs []*btcec.Signature) error {
 		return err
 	}
 	for i, sig := range sigs {
+		if !sig.Verify(tx.hashes[i], pubKey) {
+			return fmt.Errorf("sig %d is invalid", i)
+		}
 		builder := txscript.NewScriptBuilder()
 		builder.AddData(append(sig.Serialize(), byte(txscript.SigHashAll)))
 		builder.AddData(serializedPublicKey)
