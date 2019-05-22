@@ -212,7 +212,7 @@ var _ = Describe("LibBTC", func() {
 				Expect(finalBalance - initialBalance).Should(Equal(int64(10000)))
 			})
 
-			FIt("should transfer 10000 OMNI to another address", func() {
+			XIt("should transfer 10000 OMNI to another address", func() {
 				mainKey, err := loadKey(44, 1, 0, 0, 0) // "m/44'/1'/0'/0/0"
 				Expect(err).Should(BeNil())
 				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
