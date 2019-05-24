@@ -212,6 +212,45 @@ var _ = Describe("LibBTC", func() {
 				Expect(finalBalance - initialBalance).Should(Equal(int64(10000)))
 			})
 
+			XIt("should transfer 10000 OMNI to another address", func() {
+				mainKey, err := loadKey(44, 1, 0, 0, 0) // "m/44'/1'/0'/0/0"
+				Expect(err).Should(BeNil())
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				mainPrivKey := (*btcec.PrivateKey)(mainKey)
+
+				mainAccount, secondaryAccount := getAccounts(client)
+				mainAddr, err := mainAccount.Address()
+				Expect(err).Should(BeNil())
+
+				secAddr, err := secondaryAccount.Address()
+				Expect(err).Should(BeNil())
+				count, err := client.UTXOCount(ctx, mainAddr.String(), 0)
+				Expect(err).Should(BeNil())
+				builder := NewTxBuilder(client)
+				tx, err := builder.BuildOmni(ctx, mainKey.PublicKey, secAddr.String(), nil, 1, 10000, 0, int64(count), 0)
+				Expect(err).Should(BeNil())
+
+				hashes := tx.Hashes()
+				sigs := make([]*btcec.Signature, len(hashes))
+				for i, hash := range hashes {
+					sigs[i], err = mainPrivKey.Sign(hash)
+					Expect(err).Should(BeNil())
+				}
+				Expect(tx.InjectSigs(sigs)).Should(BeNil())
+
+				initialBalance, err := secondaryAccount.Balance(context.Background(), secAddr.String(), 0)
+				Expect(err).Should(BeNil())
+				// building a transaction to transfer bitcoin to the secondary address
+				txHash, err := tx.Submit(ctx)
+				Expect(err).Should(BeNil())
+
+				fmt.Printf(mainAccount.FormatTransactionView("successfully submitted transfer tx", hex.EncodeToString(txHash)))
+				finalBalance, err := secondaryAccount.Balance(context.Background(), secAddr.String(), 0)
+				Expect(err).Should(BeNil())
+				Expect(finalBalance - initialBalance).Should(Equal(int64(10000)))
+			})
+
 			It("should transfer 10000 SAT from a slave address", func() {
 				mainKey, err := loadKey(44, 1, 0, 0, 0) // "m/44'/1'/0'/0/0"
 				Expect(err).Should(BeNil())

@@ -26,6 +26,7 @@ func NewTxBuilder(client Client) TxBuilder {
 
 type TxBuilder interface {
 	Build(ctx context.Context, pubKey ecdsa.PublicKey, to string, contract []byte, value, mwIns, scriptIns int64) (Tx, error)
+	BuildOmni(ctx context.Context, pubKey ecdsa.PublicKey, to string, contract []byte, token, tokenValue, btcValue, mwIns, scriptIns int64) (Tx, error)
 }
 
 type Tx interface {
@@ -158,6 +159,9 @@ func (tx *transaction) InjectSigs(sigs []*btcec.Signature) error {
 		return err
 	}
 	for i, sig := range sigs {
+		if !sig.Verify(tx.hashes[i], pubKey) {
+			return fmt.Errorf("sig %d is invalid", i)
+		}
 		builder := txscript.NewScriptBuilder()
 		builder.AddData(append(sig.Serialize(), byte(txscript.SigHashAll)))
 		builder.AddData(serializedPublicKey)
