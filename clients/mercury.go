@@ -150,7 +150,6 @@ func (client *mercuryClient) PublishTransaction(ctx context.Context, stx *wire.M
 	req := btc.PostTransactionRequest{
 		SignedTransaction: hex.EncodeToString(stxBuffer.Bytes()),
 	}
-	fmt.Println("stx: ", hex.EncodeToString(stxBuffer.Bytes()))
 
 	buf := new(bytes.Buffer)
 	if err := json.NewEncoder(buf).Encode(&req); err != nil {
