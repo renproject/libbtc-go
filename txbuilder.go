@@ -94,7 +94,7 @@ func (builder *txBuilder) Build(
 
 	fmt.Println("utxos being used: ")
 	for i, txIn := range msgTx.TxIn {
-		fmt.Printf("[%d]: %s\n", i, txIn.PreviousOutPoint.Hash.String())
+		fmt.Printf("[%d]: %s:%d\n", i, txIn.PreviousOutPoint.Hash.String(), txIn.PreviousOutPoint.Index)
 	}
 
 	if amt < value+builder.fee {
