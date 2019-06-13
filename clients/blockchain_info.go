@@ -314,6 +314,10 @@ func (client *blockchainInfoClient) ScriptRedeemed(ctx context.Context, address 
 	return rawAddress.Received >= value && rawAddress.Balance == 0, rawAddress.Balance, nil
 }
 
+func (client *blockchainInfoClient) OmniBalance(ctx context.Context, address string, token int64) (int64, error) {
+	return -1, fmt.Errorf("blockchain.info does not support omni")
+}
+
 func (client *blockchainInfoClient) NetworkParams() *chaincfg.Params {
 	return client.Params
 }

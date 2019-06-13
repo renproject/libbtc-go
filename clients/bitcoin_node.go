@@ -197,6 +197,10 @@ func (client *bitcoinFNClient) PublishTransaction(ctx context.Context, stx *wire
 	return err
 }
 
+func (client *bitcoinFNClient) OmniBalance(ctx context.Context, address string, token int64) (int64, error) {
+	return -1, fmt.Errorf("blockchain.info does not support omni")
+}
+
 func (client *bitcoinFNClient) NetworkParams() *chaincfg.Params {
 	return client.params
 }

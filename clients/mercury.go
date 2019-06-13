@@ -62,6 +62,25 @@ func (client *mercuryClient) GetUTXOs(ctx context.Context, address string, limit
 	return utxos, nil
 }
 
+func (client *mercuryClient) OmniBalance(ctx context.Context, address string, token int64) (int64, error) {
+	ob := btc.OmniGetBalanceResponse{}
+	resp, err := http.Get(fmt.Sprintf("%s/omni/balance/%d/%s", client.URL, token, address))
+	if err != nil || resp.StatusCode != http.StatusOK {
+		if err != nil {
+			return ob.Balance, err
+		}
+		respErr := MercuryError{}
+		if err := json.NewDecoder(resp.Body).Decode(&respErr); err != nil {
+			return ob.Balance, err
+		}
+		return ob.Balance, fmt.Errorf("request failed with (%d): %s", resp.StatusCode, respErr.Error)
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&ob); err != nil {
+		return ob.Balance, err
+	}
+	return ob.Balance, nil
+}
+
 func (client *mercuryClient) Confirmations(ctx context.Context, txHash string) (int64, error) {
 	var conf btc.GetConfirmationsResponse
 	resp, err := http.Get(fmt.Sprintf("%s/confirmations/%s", client.URL, txHash))

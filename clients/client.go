@@ -33,4 +33,7 @@ type ClientCore interface {
 	// PublishTransaction should publish a signed transaction to the Bitcoin
 	// blockchain.
 	PublishTransaction(ctx context.Context, signedTransaction *wire.MsgTx) error
+
+	// OmniBalance should return the balance of the given omni token.
+	OmniBalance(ctx context.Context, address string, token int64) (int64, error)
 }
