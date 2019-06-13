@@ -57,7 +57,7 @@ func (builder *txBuilder) BuildOmni(
 
 	fmt.Println("utxos being used: ")
 	for i, txIn := range msgTx.TxIn {
-		fmt.Printf("[%d]: %s\n", i, txIn.PreviousOutPoint.Hash.String())
+		fmt.Printf("[%d]: %s:%d\n", i, txIn.PreviousOutPoint.Hash.String(), txIn.PreviousOutPoint.Index)
 	}
 
 	if amt < btcValue+builder.fee+546 {
