@@ -56,10 +56,10 @@ func (client *mercuryClient) GetUTXOs(ctx context.Context, address string, limit
 			return utxos, err
 		}
 
-		// In this case the Heroku timetout of 30 seconds has been
-		// triggered, so try again
-		if resp.StatusCode == http.StatusInternalServerError {
-			fmt.Println("retrying UTXO request...")
+		// In this case something bad has happened and we should try the
+		// request again
+		if resp.StatusCode >= 500 {
+			fmt.Printf("bad status code %v when getting UTXOs, retrying...\n", resp.StatusCode)
 			continue
 		}
 
