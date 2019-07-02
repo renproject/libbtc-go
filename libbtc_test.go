@@ -174,12 +174,13 @@ var _ = Describe("LibBTC", func() {
 				Expect(finalBalance - initialBalance).Should(Equal(int64(10000)))
 			})
 
-			It("should transfer 10000 SAT to another address", func() {
+			It("should transfer 10601 SAT to another address", func() {
 				mainKey, err := loadKey(44, 1, 0, 0, 0) // "m/44'/1'/0'/0/0"
 				Expect(err).Should(BeNil())
 				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 				defer cancel()
 				mainPrivKey := (*btcec.PrivateKey)(mainKey)
+				transferAmount, fee := int64(10601), int64(10000)
 
 				mainAccount, secondaryAccount := getAccounts(client)
 				mainAddr, err := mainAccount.Address()
@@ -189,7 +190,7 @@ var _ = Describe("LibBTC", func() {
 				count, err := client.UTXOCount(ctx, mainAddr.String(), 0)
 				Expect(err).Should(BeNil())
 				builder := NewTxBuilder(client)
-				tx, err := builder.Build(ctx, mainKey.PublicKey, secAddr.String(), nil, 10000, int64(count), 0)
+				tx, err := builder.Build(ctx, mainKey.PublicKey, secAddr.String(), nil, transferAmount, int64(count), 0)
 				Expect(err).Should(BeNil())
 
 				hashes := tx.Hashes()
@@ -209,15 +210,16 @@ var _ = Describe("LibBTC", func() {
 				fmt.Printf(mainAccount.FormatTransactionView("successfully submitted transfer tx", hex.EncodeToString(txHash)))
 				finalBalance, err := secondaryAccount.Balance(context.Background(), secAddr.String(), 0)
 				Expect(err).Should(BeNil())
-				Expect(finalBalance - initialBalance).Should(Equal(int64(10000)))
+				Expect(finalBalance - initialBalance).Should(Equal(transferAmount - fee))
 			})
 
-			It("should transfer 10000 SAT from a slave address", func() {
+			It("should transfer 10601 SAT from a slave address", func() {
 				mainKey, err := loadKey(44, 1, 0, 0, 0) // "m/44'/1'/0'/0/0"
 				Expect(err).Should(BeNil())
 				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 				defer cancel()
 				mainPrivKey := (*btcec.PrivateKey)(mainKey)
+				slaveBalance, transferAmount, fee := int64(20000), int64(10601), int64(10000)
 
 				mainAccount, secondaryAccount := getAccounts(client)
 				nonce := [32]byte{}
@@ -227,14 +229,14 @@ var _ = Describe("LibBTC", func() {
 				Expect(err).Should(BeNil())
 				slaveScript, err := mainAccount.SlaveScript(btcutil.Hash160(pubKeyBytes), nonce[:])
 				Expect(err).Should(BeNil())
-				_, _, err = mainAccount.Transfer(ctx, slaveAddr.String(), 20000, Fast, false)
+				_, _, err = mainAccount.Transfer(ctx, slaveAddr.String(), slaveBalance, Fast, false)
 				Expect(err).Should(BeNil())
 				mainAddr, err := mainAccount.Address()
 				Expect(err).Should(BeNil())
 				count, err := client.UTXOCount(ctx, mainAddr.String(), 0)
 				Expect(err).Should(BeNil())
 				builder := NewTxBuilder(client)
-				tx, err := builder.Build(ctx, mainKey.PublicKey, mainAddr.String(), slaveScript, 10000, int64(count), 1)
+				tx, err := builder.Build(ctx, mainKey.PublicKey, mainAddr.String(), slaveScript, transferAmount, int64(count), 1)
 				Expect(err).Should(BeNil())
 
 				hashes := tx.Hashes()
@@ -253,7 +255,7 @@ var _ = Describe("LibBTC", func() {
 				fmt.Printf(mainAccount.FormatTransactionView("successfully submitted transfer tx", hex.EncodeToString(txHash)))
 				finalBalance, err := secondaryAccount.Balance(context.Background(), mainAddr.String(), 0)
 				Expect(err).Should(BeNil())
-				Expect(finalBalance - initialBalance).Should(Equal(int64(10000)))
+				Expect(finalBalance - initialBalance).Should(Equal(transferAmount - fee))
 			})
 
 			It("should deposit 50000 SAT to the contract address", func() {
