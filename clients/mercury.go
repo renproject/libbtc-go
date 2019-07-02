@@ -48,7 +48,7 @@ func (client *mercuryClient) GetUTXOs(ctx context.Context, address string, limit
 	var err error
 	for {
 		resp, err = http.Get(fmt.Sprintf("%s/utxo/%s?limit=%d&confirmations=%d", client.URL, address, limit, confitmations))
-		if err == nil && resp.StatusCode == http.StatusOK {
+		if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			break
 		}
 
@@ -78,17 +78,32 @@ func (client *mercuryClient) GetUTXOs(ctx context.Context, address string, limit
 
 func (client *mercuryClient) Confirmations(ctx context.Context, txHash string) (int64, error) {
 	var conf btc.GetConfirmationsResponse
-	resp, err := http.Get(fmt.Sprintf("%s/confirmations/%s", client.URL, txHash))
-	if err != nil || resp.StatusCode != http.StatusOK {
+	var resp *http.Response
+	var err error
+	for {
+		resp, err = http.Get(fmt.Sprintf("%s/confirmations/%s", client.URL, txHash))
+		if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			break
+		}
+
 		if err != nil {
 			return 0, err
 		}
+
+		// In this case something bad has happened and we should try the
+		// request again
+		if resp.StatusCode >= 500 {
+			fmt.Printf("bad status code %v when getting confirmations, retrying...\n", resp.StatusCode)
+			continue
+		}
+
 		respErr := MercuryError{}
 		if err := json.NewDecoder(resp.Body).Decode(&respErr); err != nil {
 			return 0, err
 		}
 		return 0, fmt.Errorf("request failed with (%d): %s", resp.StatusCode, respErr.Error)
 	}
+
 	if err := json.NewDecoder(resp.Body).Decode(&conf); err != nil {
 		return 0, err
 	}
@@ -97,17 +112,32 @@ func (client *mercuryClient) Confirmations(ctx context.Context, txHash string) (
 
 func (client *mercuryClient) ScriptSpent(ctx context.Context, script, spender string) (bool, string, error) {
 	var scriptResp btc.GetScriptResponse
-	resp, err := http.Get(fmt.Sprintf("%s/script/spent/%s?spender=%s", client.URL, script, spender))
-	if err != nil || resp.StatusCode != http.StatusOK {
+	var resp *http.Response
+	var err error
+	for {
+		resp, err = http.Get(fmt.Sprintf("%s/script/spent/%s?spender=%s", client.URL, script, spender))
+		if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			break
+		}
+
 		if err != nil {
 			return false, "", err
 		}
+
+		// In this case something bad has happened and we should try the
+		// request again
+		if resp.StatusCode >= 500 {
+			fmt.Printf("bad status code %v when getting script spent response, retrying...\n", resp.StatusCode)
+			continue
+		}
+
 		respErr := MercuryError{}
 		if err := json.NewDecoder(resp.Body).Decode(&respErr); err != nil {
 			return false, "", err
 		}
 		return false, "", fmt.Errorf("request failed with (%d): %s", resp.StatusCode, respErr.Error)
 	}
+
 	if err := json.NewDecoder(resp.Body).Decode(&scriptResp); err != nil {
 		return false, "", err
 	}
@@ -118,17 +148,32 @@ func (client *mercuryClient) ScriptFunded(ctx context.Context, address string, v
 	fmt.Println(fmt.Sprintf("%s/script/funded/%s?value=%d", client.URL, address, value))
 
 	var scriptResp btc.GetScriptResponse
-	resp, err := http.Get(fmt.Sprintf("%s/script/funded/%s?value=%d", client.URL, address, value))
-	if err != nil || resp.StatusCode != http.StatusOK {
+	var resp *http.Response
+	var err error
+	for {
+		resp, err = http.Get(fmt.Sprintf("%s/script/funded/%s?value=%d", client.URL, address, value))
+		if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			break
+		}
+
 		if err != nil {
 			return false, 0, err
 		}
+
+		// In this case something bad has happened and we should try the
+		// request again
+		if resp.StatusCode >= 500 {
+			fmt.Printf("bad status code %v when getting script funded response, retrying...\n", resp.StatusCode)
+			continue
+		}
+
 		respErr := MercuryError{}
 		if err := json.NewDecoder(resp.Body).Decode(&respErr); err != nil {
 			return false, 0, err
 		}
 		return false, 0, fmt.Errorf("request failed with (%d): %s", resp.StatusCode, respErr.Error)
 	}
+
 	if err := json.NewDecoder(resp.Body).Decode(&scriptResp); err != nil {
 		return false, 0, err
 	}
@@ -137,17 +182,32 @@ func (client *mercuryClient) ScriptFunded(ctx context.Context, address string, v
 
 func (client *mercuryClient) ScriptRedeemed(ctx context.Context, address string, value int64) (bool, int64, error) {
 	var scriptResp btc.GetScriptResponse
-	resp, err := http.Get(fmt.Sprintf("%s/script/redeemed/%s?value=%d", client.URL, address, value))
-	if err != nil || resp.StatusCode != http.StatusOK {
+	var resp *http.Response
+	var err error
+	for {
+		resp, err = http.Get(fmt.Sprintf("%s/script/redeemed/%s?value=%d", client.URL, address, value))
+		if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			break
+		}
+
 		if err != nil {
 			return false, 0, err
 		}
+
+		// In this case something bad has happened and we should try the
+		// request again
+		if resp.StatusCode >= 500 {
+			fmt.Printf("bad status code %v when getting script redeemed response, retrying...\n", resp.StatusCode)
+			continue
+		}
+
 		respErr := MercuryError{}
 		if err := json.NewDecoder(resp.Body).Decode(&respErr); err != nil {
 			return false, 0, err
 		}
 		return false, 0, fmt.Errorf("request failed with (%d): %s", resp.StatusCode, respErr.Error)
 	}
+
 	if err := json.NewDecoder(resp.Body).Decode(&scriptResp); err != nil {
 		return false, 0, err
 	}
@@ -165,18 +225,33 @@ func (client *mercuryClient) PublishTransaction(ctx context.Context, stx *wire.M
 		SignedTransaction: hex.EncodeToString(stxBuffer.Bytes()),
 	}
 
-	buf := new(bytes.Buffer)
-	if err := json.NewEncoder(buf).Encode(&req); err != nil {
+	data, err := json.Marshal(req)
+	if err != nil {
 		return err
 	}
 
-	if resp, err := http.Post(fmt.Sprintf("%s/tx", client.URL), "application/json", buf); err != nil || resp.StatusCode != http.StatusCreated {
-		if err != nil {
-			return err
+	var resp *http.Response
+	for {
+		buf := bytes.NewBuffer(data)
+		resp, err = http.Post(fmt.Sprintf("%s/tx", client.URL), "application/json", buf)
+		if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			break
 		}
+
+		if err != nil {
+			return fmt.Errorf("error sending publish transaction request: %v", err)
+		}
+
+		// In this case something bad has happened and we should try the
+		// request again
+		if resp.StatusCode >= 500 {
+			fmt.Printf("bad status code %v when publishing transaction, retrying...\n", resp.StatusCode)
+			continue
+		}
+
 		respErr := MercuryError{}
 		if err := json.NewDecoder(resp.Body).Decode(&respErr); err != nil {
-			return err
+			return fmt.Errorf("error decoding publish transaction response: %v", err)
 		}
 		return fmt.Errorf("request failed with (%d): %s", resp.StatusCode, respErr.Error)
 	}
