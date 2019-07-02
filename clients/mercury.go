@@ -44,11 +44,25 @@ func (client *mercuryClient) NetworkParams() *chaincfg.Params {
 
 func (client *mercuryClient) GetUTXOs(ctx context.Context, address string, limit, confitmations int64) ([]UTXO, error) {
 	utxos := []UTXO{}
-	resp, err := http.Get(fmt.Sprintf("%s/utxo/%s?limit=%d&confirmations=%d", client.URL, address, limit, confitmations))
-	if err != nil || resp.StatusCode != http.StatusOK {
+	var resp *http.Response
+	var err error
+	for {
+		resp, err = http.Get(fmt.Sprintf("%s/utxo/%s?limit=%d&confirmations=%d", client.URL, address, limit, confitmations))
+		if err == nil && resp.StatusCode == http.StatusOK {
+			break
+		}
+
 		if err != nil {
 			return utxos, err
 		}
+
+		// In this case the Heroku timetout of 30 seconds has been
+		// triggered, so try again
+		if resp.StatusCode == http.StatusInternalServerError {
+			fmt.Println("retrying UTXO request...")
+			continue
+		}
+
 		respErr := MercuryError{}
 		if err := json.NewDecoder(resp.Body).Decode(&respErr); err != nil {
 			return utxos, err
