@@ -126,7 +126,7 @@ var _ = Describe("LibBTC", func() {
 				fmt.Printf("%s: %d SAT", addr, balance)
 			})
 
-			FIt("should get a utxo", func() {
+			It("should get a utxo", func() {
 				mainAccount, _ := getAccounts(client)
 				addr, err := mainAccount.Address()
 				Expect(err).Should(BeNil())
@@ -135,7 +135,6 @@ var _ = Describe("LibBTC", func() {
 				actualUTXO := utxos[0]
 				utxo, err := mainAccount.GetUTXO(context.Background(), actualUTXO.TxHash, actualUTXO.Vout)
 				Expect(err).Should(BeNil())
-				fmt.Println(actualUTXO, utxo)
 				Expect(reflect.DeepEqual(actualUTXO, utxo)).Should(BeTrue())
 			})
 
