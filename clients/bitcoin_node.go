@@ -1,10 +1,12 @@
 package clients
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"fmt"
 	"math"
+	"math/big"
 
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
@@ -145,6 +147,33 @@ func (client *bitcoinFNClient) ScriptRedeemed(ctx context.Context, address strin
 	return int64(amount.ToUnit(btcutil.AmountSatoshi)) >= value && balance == 0, balance, nil
 }
 
+func (client *bitcoinFNClient) GetUTXO(ctx context.Context, txHash string, vout uint32) (UTXO, error) {
+	hash, err := chainhash.NewHashFromStr(txHash)
+	if err != nil {
+		return UTXO{}, err
+	}
+
+	txRaw, err := client.client.GetRawTransaction(hash)
+	if err != nil {
+		return UTXO{}, err
+	}
+
+	buffer := new(bytes.Buffer)
+	txRaw.MsgTx().Serialize(buffer)
+
+	tx, err := client.client.DecodeRawTransaction(buffer.Bytes())
+	if err != nil {
+		return UTXO{}, err
+	}
+
+	return UTXO{
+		TxHash:       txHash,
+		Vout:         vout,
+		Amount:       floatToInt(tx.Vout[vout].Value),
+		ScriptPubKey: tx.Vout[vout].ScriptPubKey.Hex,
+	}, nil
+}
+
 func (client *bitcoinFNClient) ScriptSpent(ctx context.Context, scriptAddress, spenderAddress string) (bool, string, error) {
 	if err := client.client.ImportAddressRescan(scriptAddress, "", false); err != nil {
 		return false, "", err
@@ -199,4 +228,9 @@ func (client *bitcoinFNClient) PublishTransaction(ctx context.Context, stx *wire
 
 func (client *bitcoinFNClient) NetworkParams() *chaincfg.Params {
 	return client.params
+}
+
+func floatToInt(val float64) int64 {
+	value, _ := new(big.Float).Mul(new(big.Float).SetFloat64(val), big.NewFloat(10e8)).Int64()
+	return value
 }

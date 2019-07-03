@@ -19,6 +19,9 @@ type ClientCore interface {
 	NetworkParams() *chaincfg.Params
 
 	GetUTXOs(ctx context.Context, address string, limit, confitmations int64) ([]UTXO, error)
+
+	GetUTXO(ctx context.Context, txHash string, vout uint32) (UTXO, error)
+
 	Confirmations(ctx context.Context, txHash string) (int64, error)
 
 	// ScriptFunded checks whether a script is funded.

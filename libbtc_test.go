@@ -1,11 +1,9 @@
 package libbtc_test
 
 import (
-	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"os"
@@ -18,8 +16,6 @@ import (
 
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/btcsuite/btcd/txscript"
-	"github.com/btcsuite/btcd/wire"
 	"github.com/btcsuite/btcutil"
 	"github.com/btcsuite/btcutil/hdkeychain"
 	"github.com/tyler-smith/go-bip39"
@@ -57,22 +53,6 @@ var _ = Describe("LibBTC", func() {
 		return privKey.ToECDSA(), nil
 	}
 
-	buildHaskLockContract := func(secretHash [32]byte, to btcutil.Address) ([]byte, error) {
-		b := txscript.NewScriptBuilder()
-		b.AddOp(txscript.OP_SIZE)
-		b.AddData([]byte{32})
-		b.AddOp(txscript.OP_EQUALVERIFY)
-		b.AddOp(txscript.OP_SHA256)
-		b.AddData(secretHash[:])
-		b.AddOp(txscript.OP_EQUALVERIFY)
-		b.AddOp(txscript.OP_DUP)
-		b.AddOp(txscript.OP_HASH160)
-		b.AddData(to.(*btcutil.AddressPubKeyHash).Hash160()[:])
-		b.AddOp(txscript.OP_EQUALVERIFY)
-		b.AddOp(txscript.OP_CHECKSIG)
-		return b.Script()
-	}
-
 	buildClients := func() []Client {
 		APIClient, err := NewMercuryClient("testnet")
 		if err != nil {
@@ -97,20 +77,6 @@ var _ = Describe("LibBTC", func() {
 		}
 		secondaryAccount := NewAccount(client, secKey, nil)
 		return mainAccount, secondaryAccount
-	}
-
-	getContractDetails := func(spender btcutil.Address, net *chaincfg.Params, secret [32]byte) ([]byte, []byte, btcutil.Address) {
-		secretHash := sha256.Sum256(secret[:])
-		contract, err := buildHaskLockContract(secretHash, spender)
-		if err != nil {
-			panic(err)
-		}
-		contractAddress, err := btcutil.NewAddressScriptHash(contract, net)
-		if err != nil {
-			panic(err)
-		}
-		payToContractPublicKey, err := txscript.PayToAddrScript(contractAddress)
-		return contract, payToContractPublicKey, contractAddress
 	}
 
 	for _, client := range buildClients() {
@@ -160,6 +126,19 @@ var _ = Describe("LibBTC", func() {
 				fmt.Printf("%s: %d SAT", addr, balance)
 			})
 
+			FIt("should get a utxo", func() {
+				mainAccount, _ := getAccounts(client)
+				addr, err := mainAccount.Address()
+				Expect(err).Should(BeNil())
+				utxos, err := mainAccount.GetUTXOs(context.Background(), addr.EncodeAddress(), 1, 0)
+				Expect(err).Should(BeNil())
+				actualUTXO := utxos[0]
+				utxo, err := mainAccount.GetUTXO(context.Background(), actualUTXO.TxHash, actualUTXO.Vout)
+				Expect(err).Should(BeNil())
+				fmt.Println(actualUTXO, utxo)
+				Expect(reflect.DeepEqual(actualUTXO, utxo)).Should(BeTrue())
+			})
+
 			It("should transfer 10000 SAT to another address", func() {
 				mainAccount, secondaryAccount := getAccounts(client)
 				secAddr, err := secondaryAccount.Address()
@@ -186,10 +165,10 @@ var _ = Describe("LibBTC", func() {
 				Expect(err).Should(BeNil())
 				secAddr, err := secondaryAccount.Address()
 				Expect(err).Should(BeNil())
-				count, err := client.UTXOCount(ctx, mainAddr.String(), 0)
+				utxos, err := client.GetUTXOs(ctx, mainAddr.String(), 1000, 0)
 				Expect(err).Should(BeNil())
 				builder := NewTxBuilder(client)
-				tx, err := builder.Build(ctx, mainKey.PublicKey, secAddr.String(), nil, 10000, int64(count), 0)
+				tx, err := builder.Build(ctx, mainKey.PublicKey, secAddr.String(), nil, 20000, utxos, nil)
 				Expect(err).Should(BeNil())
 
 				hashes := tx.Hashes()
@@ -221,20 +200,24 @@ var _ = Describe("LibBTC", func() {
 
 				mainAccount, secondaryAccount := getAccounts(client)
 				nonce := [32]byte{}
+				rand.Read(nonce[:])
 				pubKeyBytes, err := client.SerializePublicKey((*btcec.PublicKey)(&mainPrivKey.PublicKey))
 				Expect(err).Should(BeNil())
 				slaveAddr, err := mainAccount.SlaveAddress(btcutil.Hash160(pubKeyBytes), nonce[:])
 				Expect(err).Should(BeNil())
 				slaveScript, err := mainAccount.SlaveScript(btcutil.Hash160(pubKeyBytes), nonce[:])
 				Expect(err).Should(BeNil())
-				_, _, err = mainAccount.Transfer(ctx, slaveAddr.String(), 20000, Fast, false)
+				_, _, err = mainAccount.Transfer(ctx, slaveAddr.String(), 30000, Fast, false)
 				Expect(err).Should(BeNil())
 				mainAddr, err := mainAccount.Address()
 				Expect(err).Should(BeNil())
-				count, err := client.UTXOCount(ctx, mainAddr.String(), 0)
+				scriptUtxos, err := client.GetUTXOs(ctx, slaveAddr.String(), 1000, 0)
+				Expect(err).Should(BeNil())
+
+				utxos, err := client.GetUTXOs(ctx, mainAddr.String(), 1000, 0)
 				Expect(err).Should(BeNil())
 				builder := NewTxBuilder(client)
-				tx, err := builder.Build(ctx, mainKey.PublicKey, mainAddr.String(), slaveScript, 10000, int64(count), 1)
+				tx, err := builder.Build(ctx, mainKey.PublicKey, mainAddr.String(), slaveScript, 20000, utxos, scriptUtxos)
 				Expect(err).Should(BeNil())
 
 				hashes := tx.Hashes()
@@ -253,115 +236,7 @@ var _ = Describe("LibBTC", func() {
 				fmt.Printf(mainAccount.FormatTransactionView("successfully submitted transfer tx", hex.EncodeToString(txHash)))
 				finalBalance, err := secondaryAccount.Balance(context.Background(), mainAddr.String(), 0)
 				Expect(err).Should(BeNil())
-				Expect(finalBalance - initialBalance).Should(Equal(int64(10000)))
-			})
-
-			It("should deposit 50000 SAT to the contract address", func() {
-				mainAccount, secondaryAccount := getAccounts(client)
-				spender, err := secondaryAccount.Address()
-				Expect(err).Should(BeNil())
-				_, payToContractPublicKey, contractAddress := getContractDetails(spender, mainAccount.NetworkParams(), secret)
-				initialBalance, err := secondaryAccount.Balance(context.Background(), contractAddress.EncodeAddress(), 0)
-				Expect(err).Should(BeNil())
-				// building a transaction to transfer bitcoin to the secondary address
-				_, _, err = mainAccount.SendTransaction(
-					context.Background(),
-					nil,
-					Fast, // fee
-					nil,
-					func(msgtx *wire.MsgTx) bool {
-						funded, val, err := mainAccount.ScriptFunded(context.Background(), contractAddress.EncodeAddress(), 50000)
-						if err != nil {
-							return false
-						}
-						if !funded {
-							msgtx.AddTxOut(wire.NewTxOut(50000-val, payToContractPublicKey))
-						}
-						return !funded
-					},
-					nil,
-					func(msgtx *wire.MsgTx) bool {
-						funded, _, err := mainAccount.ScriptFunded(context.Background(), contractAddress.EncodeAddress(), 50000)
-						if err != nil {
-							return false
-						}
-						return funded
-					},
-					false,
-				)
-				Expect(err).Should(BeNil())
-				finalBalance, err := secondaryAccount.Balance(context.Background(), contractAddress.EncodeAddress(), 0)
-				Expect(err).Should(BeNil())
-				Expect(finalBalance - initialBalance).Should(Equal(int64(50000)))
-			})
-
-			It("should withdraw 50000 SAT from the contract address", func() {
-				_, secondaryAccount := getAccounts(client)
-				spender, err := secondaryAccount.Address()
-				Expect(err).Should(BeNil())
-				contract, _, contractAddress := getContractDetails(spender, secondaryAccount.NetworkParams(), secret)
-				initialBalance, err := secondaryAccount.Balance(context.Background(), contractAddress.EncodeAddress(), 0)
-				Expect(err).Should(BeNil())
-				P2PKHScript, err := txscript.PayToAddrScript(spender)
-				Expect(err).Should(BeNil())
-
-				fmt.Println("before")
-
-				// building a transaction to transfer bitcoin to the secondary address
-				_, _, err = secondaryAccount.SendTransaction(
-					context.Background(),
-					contract,
-					Fast, // fee
-					nil,
-					func(msgtx *wire.MsgTx) bool {
-						redeemed, val, err := secondaryAccount.ScriptRedeemed(context.Background(), contractAddress.EncodeAddress(), 50000)
-						if err != nil {
-							return false
-						}
-						if !redeemed {
-							msgtx.AddTxOut(wire.NewTxOut(val, P2PKHScript))
-						}
-						return !redeemed
-					},
-					func(builder *txscript.ScriptBuilder) {
-						builder.AddData(secret[:])
-					},
-					func(msgtx *wire.MsgTx) bool {
-						fmt.Println("post-con check", contractAddress.EncodeAddress(), spender.EncodeAddress())
-						spent, _, err := secondaryAccount.ScriptSpent(context.Background(), contractAddress.EncodeAddress(), spender.EncodeAddress())
-						if err != nil {
-							return false
-						}
-						return spent
-					},
-					true,
-				)
-				Expect(err).Should(BeNil())
-				finalBalance, err := secondaryAccount.Balance(context.Background(), contractAddress.EncodeAddress(), 0)
-				Expect(err).Should(BeNil())
-				Expect(initialBalance - finalBalance).Should(Equal(int64(50000)))
-			})
-
-			It("should be able to extract details from a spent contract", func() {
-				mainAccount, secondaryAccount := getAccounts(client)
-				spender, err := secondaryAccount.Address()
-				Expect(err).Should(BeNil())
-				_, _, contractAddress := getContractDetails(spender, mainAccount.NetworkParams(), secret)
-				spent, sigScript, err := mainAccount.ScriptSpent(context.Background(), contractAddress.EncodeAddress(), spender.EncodeAddress())
-				Expect(err).Should(BeNil())
-				Expect(spent).Should(BeTrue())
-				Expect(err).Should(BeNil())
-				sigScriptBytes, err := hex.DecodeString(sigScript)
-				Expect(err).Should(BeNil())
-				pushes, err := txscript.PushedData(sigScriptBytes)
-				Expect(err).Should(BeNil())
-				success := false
-				for _, push := range pushes {
-					if bytes.Compare(push, secret[:]) == 0 {
-						success = true
-					}
-				}
-				Expect(success).Should(BeTrue())
+				Expect(finalBalance - initialBalance).Should(Equal(int64(20000)))
 			})
 		})
 	}

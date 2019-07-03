@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	"github.com/renproject/libbtc-go/clients"
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/txscript"
@@ -25,7 +26,7 @@ func NewTxBuilder(client Client) TxBuilder {
 }
 
 type TxBuilder interface {
-	Build(ctx context.Context, pubKey ecdsa.PublicKey, to string, contract []byte, value, mwIns, scriptIns int64) (Tx, error)
+	Build(ctx context.Context, pubKey ecdsa.PublicKey, to string, contract []byte, value int64, mwUTXOs, scriptUTXOs []clients.UTXO) (Tx, error)
 }
 
 type Tx interface {
@@ -41,7 +42,7 @@ type transaction struct {
 	client    Client
 	contract  []byte
 	publicKey ecdsa.PublicKey
-	mwIns     int64
+	mwIns     int
 }
 
 func (builder *txBuilder) Build(
@@ -49,7 +50,8 @@ func (builder *txBuilder) Build(
 	pubKey ecdsa.PublicKey,
 	to string,
 	contract []byte,
-	value, mwIns, scriptIns int64,
+	value int64,
+	mwUTXOs, scriptUTXOs []clients.UTXO,
 ) (Tx, error) {
 	if value < builder.fee+builder.dust {
 		return nil, fmt.Errorf("minimum transfer amount is : %d", builder.dust+builder.fee+1)
@@ -74,21 +76,17 @@ func (builder *txBuilder) Build(
 	msgTx := wire.NewMsgTx(builder.version)
 
 	var sent int64
-	amt, pubKeyScript, err := fundBtcTx(ctx, from, nil, builder.client, msgTx, int(mwIns))
+	amt, pubKeyScript, err := fundBtcTx(ctx, from, nil, builder.client, msgTx, mwUTXOs)
 	if err != nil {
 		return nil, err
 	}
 	if contract != nil {
-		amt2, _, err := fundBtcTx(ctx, from, contract, builder.client, msgTx, int(scriptIns))
+		amt2, _, err := fundBtcTx(ctx, from, contract, builder.client, msgTx, scriptUTXOs)
 		if err != nil {
 			return nil, err
 		}
 		amt += amt2
 		sent = amt2 - builder.fee
-	}
-
-	if len(msgTx.TxIn) != int(mwIns+scriptIns) {
-		return nil, fmt.Errorf("utxos spent")
 	}
 
 	fmt.Println("utxos being used: ")
@@ -120,7 +118,7 @@ func (builder *txBuilder) Build(
 
 	var hashes [][]byte
 
-	for i := 0; i < int(mwIns); i++ {
+	for i := 0; i < len(mwUTXOs); i++ {
 		hash, err := txscript.CalcSignatureHash(pubKeyScript, txscript.SigHashAll, msgTx, i)
 		if err != nil {
 			return nil, err
@@ -128,7 +126,7 @@ func (builder *txBuilder) Build(
 		hashes = append(hashes, hash)
 	}
 
-	for i := int(mwIns); i < int(scriptIns+mwIns); i++ {
+	for i := len(mwUTXOs); i < len(mwUTXOs)+len(scriptUTXOs); i++ {
 		hash, err := txscript.CalcSignatureHash(contract, txscript.SigHashAll, msgTx, i)
 		if err != nil {
 			return nil, err
@@ -143,7 +141,7 @@ func (builder *txBuilder) Build(
 		client:    builder.client,
 		publicKey: pubKey,
 		contract:  contract,
-		mwIns:     mwIns,
+		mwIns:     len(mwUTXOs),
 	}, nil
 }
 
@@ -161,7 +159,7 @@ func (tx *transaction) InjectSigs(sigs []*btcec.Signature) error {
 		builder := txscript.NewScriptBuilder()
 		builder.AddData(append(sig.Serialize(), byte(txscript.SigHashAll)))
 		builder.AddData(serializedPublicKey)
-		if int64(i) >= tx.mwIns && tx.contract != nil {
+		if i >= tx.mwIns && tx.contract != nil {
 			builder.AddData(tx.contract)
 		}
 		sigScript, err := builder.Script()
@@ -180,7 +178,7 @@ func (tx *transaction) Submit(ctx context.Context) ([]byte, error) {
 	return hex.DecodeString(tx.msgTx.TxHash().String())
 }
 
-func fundBtcTx(ctx context.Context, from btcutil.Address, script []byte, client Client, msgTx *wire.MsgTx, n int) (int64, []byte, error) {
+func fundBtcTx(ctx context.Context, from btcutil.Address, script []byte, client Client, msgTx *wire.MsgTx, utxos []clients.UTXO) (int64, []byte, error) {
 	if script != nil {
 		scriptAddr, err := btcutil.NewAddressScriptHash(script, client.NetworkParams())
 		if err != nil {
@@ -189,18 +187,10 @@ func fundBtcTx(ctx context.Context, from btcutil.Address, script []byte, client 
 		from = scriptAddr
 	}
 
-	utxos, err := client.GetUTXOs(ctx, from.EncodeAddress(), int64(n), 0)
-	if err != nil {
-		return 0, nil, err
-	}
-	if len(utxos) < n {
-		return 0, nil, fmt.Errorf("insufficient utxos requirex: %d got: %d", n, len(utxos))
-	}
-
 	var amount int64
 	var scriptPubKey []byte
-	for _, j := range utxos {
-		ScriptPubKey, err := hex.DecodeString(j.ScriptPubKey)
+	for _, utxo := range utxos {
+		ScriptPubKey, err := hex.DecodeString(utxo.ScriptPubKey)
 		if err != nil {
 			return 0, nil, err
 		}
@@ -212,12 +202,12 @@ func fundBtcTx(ctx context.Context, from btcutil.Address, script []byte, client 
 			}
 		}
 
-		hash, err := chainhash.NewHashFromStr(j.TxHash)
+		hash, err := chainhash.NewHashFromStr(utxo.TxHash)
 		if err != nil {
 			return 0, nil, err
 		}
-		msgTx.AddTxIn(wire.NewTxIn(wire.NewOutPoint(hash, j.Vout), []byte{}, [][]byte{}))
-		amount += j.Amount
+		msgTx.AddTxIn(wire.NewTxIn(wire.NewOutPoint(hash, utxo.Vout), []byte{}, [][]byte{}))
+		amount += utxo.Amount
 	}
 
 	if script != nil {

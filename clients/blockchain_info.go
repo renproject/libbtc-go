@@ -318,6 +318,10 @@ func (client *blockchainInfoClient) NetworkParams() *chaincfg.Params {
 	return client.Params
 }
 
+func (client *blockchainInfoClient) GetUTXO(ctx context.Context, txhash string, vout uint32) (UTXO, error) {
+	panic("unimplemented")
+}
+
 func backoff(ctx context.Context, f func() error) error {
 	duration := time.Duration(1000)
 	for {
